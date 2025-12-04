@@ -80,7 +80,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/quick-donate">
+                        <Link href="/quick-donate/CH456634">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-quick-donate">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -93,7 +93,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/recurring-donations">
+                        <Link href="/philanthropist/recurring">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-recurring">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -150,7 +150,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/beneficiary/login">
+                        <Link href="/beneficiary">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-beneficiary-login">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -304,13 +304,13 @@ export default function Header() {
                         Donor Portal
                       </Button>
                     </Link>
-                    <Link href="/quick-donate">
+                    <Link href="/quick-donate/CH456634">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-quick-donate">
                         <Zap className="w-4 h-4" />
                         Quick Donate
                       </Button>
                     </Link>
-                    <Link href="/recurring-donations">
+                    <Link href="/philanthropist/recurring">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-recurring">
                         <Repeat className="w-4 h-4" />
                         Recurring Donations
@@ -333,7 +333,7 @@ export default function Header() {
                         Quick Tag Setup
                       </Button>
                     </Link>
-                    <Link href="/beneficiary/login">
+                    <Link href="/beneficiary">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-beneficiary">
                         <Users className="w-4 h-4" />
                         Beneficiary Login

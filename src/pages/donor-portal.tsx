@@ -417,7 +417,7 @@ export default function DonorPortal() {
                 <Label htmlFor="agreeTerms" className="cursor-pointer leading-relaxed">
                   I agree to the{" "}
                   <a 
-                    href="/terms" 
+                    href="/api/terms" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-primary hover:underline font-medium"

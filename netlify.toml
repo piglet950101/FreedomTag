@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Set this in the Netlify site settings (or override here for quick tests)
+  # Replace the value below with your backend base URL (e.g. https://api.example.com)
+  VITE_BACKEND_URL = "https://api.example.com"
+
+[[redirects]]
+  # Proxy all /api requests to the backend. This avoids CORS problems since requests
+  # are made to the same origin (Netlify) and then proxied to the backend.
+  from = "/api/*"
+  to = "https://api.example.com/:splat"
+  status = 200
+  force = true
