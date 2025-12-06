@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Tag as TagIcon, CheckCircle, Smartphone, QrCode, Bitcoin, Lock, LogOut } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Tag as TagIcon, CheckCircle, Smartphone, QrCode, Bitcoin, Lock, LogOut, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import DonationQRCode from "@/components/DonationQRCode";
+import { useToast } from "@/hooks/use-toast";
 
 interface TagInfo {
   tagCode: string;
@@ -18,10 +20,13 @@ interface TagInfo {
 export default function Donor() {
   const { tagCode } = useParams<{ tagCode: string }>();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [amount, setAmount] = useState("10000");
   const [isPaying, setIsPaying] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [showCryptoDialog, setShowCryptoDialog] = useState(false);
+  const [selectedCrypto, setSelectedCrypto] = useState<'BTC' | 'ETH' | 'USDT'>('USDT');
 
   const params = new URLSearchParams(window.location.search);
   const justPaid = params.get('paid') === '1';
@@ -83,7 +88,11 @@ export default function Donor() {
       const response = await fetch('/api/crypto/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tagCode, amountZAR: Number(amount) }),
+        body: JSON.stringify({ 
+          tagCode, 
+          amountZAR: Number(amount),
+          currency: selectedCrypto 
+        }),
       });
       const data = await response.json();
       if (data.cryptoSimUrl) {
@@ -91,7 +100,14 @@ export default function Donor() {
       }
     } catch (error) {
       console.error('Crypto payment failed:', error);
+      toast({
+        title: "Payment Failed",
+        description: "Unable to process crypto payment. Please try again.",
+        variant: "destructive",
+      });
       setIsPaying(false);
+    } finally {
+      setShowCryptoDialog(false);
     }
   };
 
@@ -144,7 +160,30 @@ export default function Donor() {
               Authenticated as: <strong className="text-foreground">{beneficiaryName}</strong>
             </span>
           </div>
-          <h1 className="text-4xl font-bold mb-2 text-foreground">My Freedom Tag Wallet</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-4xl font-bold text-foreground">My Freedom Tag</h1>
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg border border-primary/20">
+              <TagIcon className="w-5 h-5 text-primary" />
+              <span className="text-2xl font-bold text-primary">{tagCode}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  if (tagCode) {
+                    navigator.clipboard.writeText(tagCode);
+                    toast({
+                      title: "Copied!",
+                      description: `Tag code ${tagCode} copied to clipboard`,
+                    });
+                  }
+                }}
+                title="Copy tag code"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <p className="text-muted-foreground">View your balance and accept donations</p>
         </div>
 
@@ -220,8 +259,27 @@ export default function Donor() {
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <TagIcon className="w-5 h-5 text-primary" />
               </div>
-              <div>
-                <CardTitle className="text-2xl">Tag {tagInfo?.tagCode}</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-2xl">Tag {tagInfo?.tagCode}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => {
+                      if (tagInfo?.tagCode) {
+                        navigator.clipboard.writeText(tagInfo.tagCode);
+                        toast({
+                          title: "Copied!",
+                          description: `Tag code ${tagInfo.tagCode} copied to clipboard`,
+                        });
+                      }
+                    }}
+                    title="Copy tag code"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
                 <CardDescription>Current Balance</CardDescription>
               </div>
             </div>
@@ -267,7 +325,7 @@ export default function Donor() {
               </Button>
 
               <Button
-                onClick={handleCryptoPay}
+                onClick={() => setShowCryptoDialog(true)}
                 disabled={isPaying || !amount || Number(amount) <= 0}
                 className="w-full text-lg py-6"
                 size="lg"
@@ -275,7 +333,7 @@ export default function Donor() {
                 data-testid="button-crypto-donate"
               >
                 <Bitcoin className="w-5 h-5 mr-2" />
-                {isPaying ? 'Processing...' : 'Pay with Crypto'}
+                Pay with Crypto
               </Button>
             </div>
 
@@ -286,6 +344,86 @@ export default function Donor() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Crypto Currency Selection Dialog */}
+      <Dialog open={showCryptoDialog} onOpenChange={setShowCryptoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Cryptocurrency</DialogTitle>
+            <DialogDescription>
+              Choose your preferred cryptocurrency for donation of R {(Number(amount) / 100).toFixed(2)}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            <Button
+              variant={selectedCrypto === 'USDT' ? 'default' : 'outline'}
+              className="w-full justify-start text-left h-auto py-4"
+              onClick={() => setSelectedCrypto('USDT')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="font-bold text-green-700">₮</span>
+                </div>
+                <div>
+                  <div className="font-semibold">Tether (USDT)</div>
+                  <div className="text-sm text-muted-foreground">Stablecoin pegged to USD</div>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant={selectedCrypto === 'BTC' ? 'default' : 'outline'}
+              className="w-full justify-start text-left h-auto py-4"
+              onClick={() => setSelectedCrypto('BTC')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Bitcoin className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <div className="font-semibold">Bitcoin (BTC)</div>
+                  <div className="text-sm text-muted-foreground">Digital gold standard</div>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant={selectedCrypto === 'ETH' ? 'default' : 'outline'}
+              className="w-full justify-start text-left h-auto py-4"
+              onClick={() => setSelectedCrypto('ETH')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <span className="font-bold text-purple-700">Ξ</span>
+                </div>
+                <div>
+                  <div className="font-semibold">Ethereum (ETH)</div>
+                  <div className="text-sm text-muted-foreground">Smart contract platform</div>
+                </div>
+              </div>
+            </Button>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowCryptoDialog(false)}
+              disabled={isPaying}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleCryptoPay}
+              disabled={isPaying}
+            >
+              {isPaying ? 'Processing...' : `Pay with ${selectedCrypto}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

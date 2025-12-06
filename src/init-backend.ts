@@ -49,7 +49,18 @@ window.fetch = (input: RequestInfo, init?: RequestInit) => {
     }
 
     const newInput = typeof input === 'string' ? urlStr : new Request(urlStr, input);
-    return originalFetch(newInput, init as any);
+    return originalFetch(newInput, init as any).then((res) => {
+      if (res && res.status === 401) {
+        try {
+          const isAuthFlow = /\/api\/(philanthropist|beneficiary|charity|merchant|organization)\/login/.test(urlStr) || /\/api\/auth\/(login|signup|change-password)/.test(urlStr);
+          if (!isAuthFlow) {
+            // Redirect to home on unauthorized for non-auth flows
+            window.location.href = '/';
+          }
+        } catch (_) {}
+      }
+      return res;
+    });
   } catch (err) {
     return originalFetch(input, init as any);
   }

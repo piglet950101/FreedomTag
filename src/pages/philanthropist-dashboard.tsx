@@ -2,7 +2,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Wallet, Gift, Building2, ArrowRight, UserPlus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Heart, LogOut, Wallet, Gift, Building2, ArrowRight, UserPlus, ArrowLeft, Bitcoin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ReferralShare } from "@/components/ReferralShare";
@@ -17,6 +18,14 @@ interface PhilanthropistResponse {
   isAnonymous: number;
   country: string | null;
   referralCode: string | null;
+  blockkoinAccountId?: string;
+  blockkoinKycStatus?: string;
+}
+
+interface CryptoBalances {
+  BTC: number;
+  ETH: number;
+  USDT: number;
 }
 
 export default function PhilanthropistDashboard() {
@@ -25,6 +34,12 @@ export default function PhilanthropistDashboard() {
 
   const { data: philanthropist, isLoading } = useQuery<PhilanthropistResponse>({
     queryKey: ['/api/philanthropist/me'],
+  });
+
+  const { data: cryptoBalances } = useQuery<CryptoBalances>({
+    queryKey: ['/api/crypto/balances'],
+    enabled: !!philanthropist?.blockkoinAccountId,
+    retry: false,
   });
 
   const logoutMutation = useMutation({
@@ -68,6 +83,14 @@ export default function PhilanthropistDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="mb-4">
+          <Link href="/">
+            <Button variant="ghost" className="mb-2" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+          </Link>
+        </div>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-dashboard-title">
@@ -135,6 +158,91 @@ export default function PhilanthropistDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {philanthropist.blockkoinAccountId && cryptoBalances && (
+          <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Bitcoin className="h-5 w-5 text-orange-600" />
+                Blockkoin Wallet
+              </CardTitle>
+              <CardDescription>
+                Blockkoin Account: {philanthropist.blockkoinAccountId}
+                {philanthropist.blockkoinKycStatus && (
+                  <Badge variant="outline" className="ml-2">
+                    KYC: {philanthropist.blockkoinKycStatus}
+                  </Badge>
+                )}
+                {philanthropist.blockkoinKycStatus === 'none' && (
+                  <Button
+                    variant="default"
+                    className="ml-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={() => {
+                      const win = window.open('https://bkr.blockkoin.io/', '_blank', 'noopener,noreferrer');
+                      if (win) { win.focus(); }
+                    }}
+                    data-testid="button-kyc-verify"
+                  >
+                    Verify KYC
+                  </Button>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="p-4 rounded-lg bg-orange-100/50 border border-orange-200">
+                  <p className="text-sm text-muted-foreground mb-1">Bitcoin (BTC)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.BTC.toFixed(8)} BTC
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-purple-100/50 border border-purple-200">
+                  <p className="text-sm text-muted-foreground mb-1">Ethereum (ETH)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.ETH.toFixed(8)} ETH
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-green-100/50 border border-green-200">
+                  <p className="text-sm text-muted-foreground mb-1">Tether (USDT)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.USDT.toFixed(2)} USDT
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!philanthropist.blockkoinAccountId && (
+          <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Bitcoin className="h-5 w-5 text-orange-600" />
+                Blockkoin Wallet
+              </CardTitle>
+              <CardDescription>
+                Your Blockkoin wallet is not set up yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Complete Blockkoin onboarding to create your wallet and view balances.
+                </p>
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => {
+                    const win = window.open('https://bkr.blockkoin.io/', '_blank', 'noopener,noreferrer');
+                    if (win) { win.focus(); }
+                  }}
+                  data-testid="button-kyc-onboard"
+                >
+                  Start Verification
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/philanthropist/fund" className="block">

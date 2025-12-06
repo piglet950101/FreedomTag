@@ -41,13 +41,11 @@ export default function DonationTicker() {
     }
   }, [data, lastShownId, toast]);
 
-  const donationsToShow = displayedDonations.length > 0 
-    ? displayedDonations 
-    : [
-        { id: '1', amount: 10000, organizationName: 'Hope Foundation', timestamp: new Date().toISOString() },
-        { id: '2', amount: 25000, organizationName: 'Student Aid Program', timestamp: new Date().toISOString() },
-        { id: '3', amount: 15000, organizationName: 'Haven Shelter', timestamp: new Date().toISOString() },
-      ];
+  // Do not show mock data — only display actual recent donations.
+  const donationsToShow = displayedDonations;
+
+  // If there are no donations to show, don't render the ticker at all.
+  if (!donationsToShow || donationsToShow.length === 0) return null;
 
   return (
     <div className="w-full bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border-y border-primary/20" data-testid="donation-ticker">

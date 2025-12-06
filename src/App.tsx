@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,8 @@ import NotFound from "@/pages/not-found";
 import DonationTicker from "@/components/DonationTicker";
 import Home from "@/pages/home";
 import Donor from "@/pages/donor";
+import DonorHome from "@/pages/donor-home";
+import DonorViewTag from "@/pages/donor-view-tag";
 import QuickDonate from "@/pages/quick-donate";
 import TagQR from "@/pages/tag-qr";
 import BankPayment from "@/pages/bank-payment";
@@ -25,6 +27,7 @@ import DonorPortal from "@/pages/donor-portal";
 import BeneficiaryPortal from "@/pages/beneficiary-portal";
 import DemoVerification from "@/pages/demo-verification";
 import PhilanthropistSignup from "@/pages/philanthropist-signup";
+import PhilanthropistLogin from "@/pages/philanthropist-login";
 import PhilanthropistDashboard from "@/pages/philanthropist-dashboard";
 import PhilanthropistFund from "@/pages/philanthropist-fund";
 import PhilanthropistGive from "@/pages/philanthropist-give";
@@ -32,6 +35,7 @@ import PhilanthropistSpend from "@/pages/philanthropist-spend";
 import PhilanthropistInvite from "@/pages/philanthropist-invite";
 import RecurringDonations from "@/pages/recurring-donations";
 import CharitySignup from "@/pages/charity-signup";
+import CharityLogin from "@/pages/charity-login";
 import CharityCredibility from "@/pages/charity-credibility";
 import Stories from "@/pages/stories";
 import QuickTagSetup from "@/pages/quick-tag-setup";
@@ -50,6 +54,10 @@ import Features from "@/pages/features";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import DemoGuide from "@/pages/demo-guide";
+import StripeDonate from "@/pages/stripe-donate";
+import StripeCheckout from "@/pages/stripe-checkout";
+import StripeSuccess from "@/pages/stripe-success";
+import Header from "@/components/Header";
 
 function Router() {
   return (
@@ -57,11 +65,12 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/welcome" component={Home} />
       <Route path="/welcome-old" component={WelcomePage} />
-      <Route path="/signup" component={SignupPage} />
-      <Route path="/login" component={LoginPage} />
+      <Route path="/beneficiary/signup" component={SignupPage} />
+      <Route path="/beneficiary/login" component={BeneficiaryLogin} />
+      {/* <Route path="/beneficiary/dashboard" component={BeneficiaryDashboard} /> */}
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password/:token" component={ResetPassword} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/beneficiary/dashboard" component={Dashboard} />
       <Route path="/crypto-demo" component={CryptoDemo} />
       <Route path="/home" component={Home} />
       <Route path="/verified-charities" component={VerifiedCharities} />
@@ -73,8 +82,12 @@ function Router() {
       <Route path="/quick-tag-setup" component={QuickTagSetup} />
       <Route path="/agent-tag-setup" component={AgentTagSetup} />
       <Route path="/change-pin" component={ChangePinPage} />
-      <Route path="/donor" component={DonorPortal} />
+      <Route path="/donor" component={DonorHome} />
+      <Route path="/donor/view/:tagCode" component={DonorViewTag} />
+      <Route path="/donor-portal" component={DonorPortal} />
       <Route path="/beneficiary" component={BeneficiaryPortal} />
+      <Route path="/philanthropist/signup" component={PhilanthropistSignup} />
+      <Route path="/philanthropist/login" component={PhilanthropistLogin} />
       <Route path="/philanthropist" component={PhilanthropistSignup} />
       <Route path="/philanthropist/dashboard" component={PhilanthropistDashboard} />
       <Route path="/philanthropist/fund" component={PhilanthropistFund} />
@@ -83,13 +96,17 @@ function Router() {
       <Route path="/philanthropist/invite" component={PhilanthropistInvite} />
       <Route path="/philanthropist/recurring" component={RecurringDonations} />
       <Route path="/charity/signup" component={CharitySignup} />
+      <Route path="/charity/login" component={CharityLogin} />
       <Route path="/charity/credibility/:charityCode" component={CharityCredibility} />
       <Route path="/stories" component={Stories} />
       <Route path="/tag/:tagCode" component={Donor} />
-      <Route path="/quick-donate/:tagCode" component={QuickDonate} />
+      <Route path="/quick-donate" component={QuickDonate} />
       <Route path="/tag-qr/:tagCode" component={TagQR} />
       <Route path="/bank/pay" component={BankPayment} />
       <Route path="/crypto/pay" component={CryptoPayment} />
+      <Route path="/stripe/donate/:tagCode" component={StripeDonate} />
+      <Route path="/stripe/checkout/:tagCode" component={StripeCheckout} />
+      <Route path="/stripe/success" component={StripeSuccess} />
       <Route path="/merchant" component={Merchant} />
       <Route path="/admin" component={Admin} />
       <Route path="/organization" component={OrganizationPortal} />
@@ -107,10 +124,13 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  const hideHeader = /(^|\/)login(\/?|$)/i.test(location) || /(^|\/)signup(\/?|$)/i.test(location);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="min-h-screen flex flex-col">
+          {!hideHeader && <Header />}
           <DonationTicker />
           <div className="flex-1">
             <Router />

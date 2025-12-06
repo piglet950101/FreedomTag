@@ -41,7 +41,7 @@ const features = [
       {
         title: "Quick Donate",
         description: "Instant QR code donations - scan and give in seconds",
-        link: "/quick-donate/CH456634",
+        link: "/quick-donate/",
         icon: Zap,
         testId: "feature-quick-donate"
       },

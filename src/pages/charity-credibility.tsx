@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Heart, Globe, Facebook, Twitter, Instagram, Linkedin, CheckCircle2, Copy, ArrowRight } from "lucide-react";
+import { Heart, Globe, Facebook, Twitter, Instagram, Linkedin, CheckCircle2, Copy, ArrowRight, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import DonationQRCode from "@/components/DonationQRCode";
 
 interface DonationRecord {
   id: string;
@@ -111,7 +112,17 @@ export default function CharityCredibility() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-5xl md:max-w-4xl lg:max-w-5xl mx-auto space-y-6 md:space-y-8">
+        <div className="flex">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to home
+          </Button>
+        </div>
         {/* Header with Logo and Trust Badge */}
         <Card>
           <CardHeader>
@@ -166,7 +177,7 @@ export default function CharityCredibility() {
           </Card>
         )}
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Donation Stats */}
           <Card>
             <CardHeader>
@@ -266,6 +277,33 @@ export default function CharityCredibility() {
           </Card>
         </div>
 
+        {/* Blockkoin Wallet */}
+        <Card className="border-orange-500/20 bg-orange-50/50">
+          <CardHeader>
+            <div className="flex items-center gap-2 text-orange-900">
+              <CardTitle>Blockkoin Wallet</CardTitle>
+            </div>
+            <CardDescription>
+              Current Fiat Balance: {formatCurrency(wallet.balanceZAR)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Complete Blockkoin onboarding to create or verify the charity wallet and view crypto balances.
+            </p>
+            <Button
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => {
+                const win = window.open('https://bkr.blockkoin.io/', '_blank', 'noopener,noreferrer');
+                if (win) { win.focus(); }
+              }}
+              data-testid="button-charity-kyc"
+            >
+              Start Verification
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Unique Freedom Tag Code */}
         <Card>
           <CardHeader>
@@ -287,6 +325,21 @@ export default function CharityCredibility() {
               >
                 <Copy className={copiedCode ? "w-4 h-4 text-primary" : "w-4 h-4"} />
               </Button>
+            </div>
+            <div className="mt-6">
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-center text-base md:text-lg">Scan QR Code to Donate</CardTitle>
+                  <CardDescription className="text-center text-xs md:text-sm">Anyone can scan this code to donate to {organization.name}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center">
+                  <DonationQRCode
+                    url={`${window.location.origin}/donor?tag=${tag.tagCode}`}
+                    tagCode={tag.tagCode}
+                    size={240}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </CardContent>
         </Card>
@@ -328,10 +381,10 @@ export default function CharityCredibility() {
         )}
 
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
           <Button 
             size="lg" 
-            className="flex-1"
+            className="w-full md:flex-1"
             onClick={() => navigate(`/charity/signup?ref=${referralCode || tag.referralCode}`)}
             data-testid="button-join-charity"
           >
@@ -341,6 +394,7 @@ export default function CharityCredibility() {
           <Button 
             size="lg" 
             variant="outline"
+            className="w-full md:flex-1"
             onClick={() => navigate(`/donor?tag=${tag.tagCode}`)}
             data-testid="button-donate"
           >

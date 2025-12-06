@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,21 @@ export default function QuickTagSetup() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showViralPopup, setShowViralPopup] = useState(false);
+
+  // Fetch current user session if logged in
+  const { data: session } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return null; // User not logged in
+      }
+      return response.json();
+    },
+    retry: false,
+  });
 
   // Check for existing draft on mount
   useEffect(() => {
@@ -146,12 +161,13 @@ export default function QuickTagSetup() {
   const createTagMutation = useMutation<
     QuickTagResponse,
     Error,
-    { beneficiaryName: string; beneficiaryPhone?: string; pin: string }
+    { beneficiaryName: string; beneficiaryPhone?: string; pin: string; userId?: string }
   >({
     mutationFn: async (data) => {
       const response = await fetch('/api/quick-tag-setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
       if (!response.ok) {
@@ -212,6 +228,7 @@ export default function QuickTagSetup() {
       beneficiaryName,
       beneficiaryPhone: beneficiaryPhone.trim() || undefined,
       pin,
+      userId: session?.user?.id, // Include userId if user is logged in
     });
   };
 
@@ -221,12 +238,10 @@ export default function QuickTagSetup() {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <Link href="/">
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-          </Link>
+          <Button variant="ghost" className="mb-6" onClick={() => window.history.back()} data-testid="button-back">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
 
           <Card className="border-primary/20" data-testid="card-success">
             <CardHeader className="text-center">
@@ -309,12 +324,10 @@ export default function QuickTagSetup() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <Link href="/">
-          <Button variant="ghost" className="mb-6" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-        </Link>
+        <Button variant="ghost" className="mb-6" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
         {/* Draft Recovery Alert */}
         {showDraftAlert && hasDraft && (

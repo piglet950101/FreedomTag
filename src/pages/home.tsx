@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tag, Building2, Heart, ShieldCheck, ExternalLink, Users, CheckCircle2, Lock, TrendingUp, Globe, MessageCircle, Bot, Ticket, Trash2, Vote, FileCheck } from "lucide-react";
 import type { Organization } from "@shared/schema";
 import Leaderboard from "@/components/Leaderboard";
-import Header from "@/components/Header";
 
 export default function Home() {
   const { data: orgsData } = useQuery<{ organizations: Organization[] }>({
@@ -18,7 +17,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       
       {/* Investor Demo Banner */}
       <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 px-4">
@@ -369,20 +367,24 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-4 justify-center mb-6">
-            <Link href="/charity/signup">
-              <Button size="lg" className="gap-2" data-testid="button-join-with-contract">
-                <ShieldCheck className="w-5 h-5" />
-                Join with Smart Contract (Verified)
-              </Button>
-            </Link>
-            
-            <Link href="/charity/signup?basic=true">
-              <Button size="lg" variant="outline" className="gap-2" data-testid="button-join-basic">
-                <Building2 className="w-5 h-5" />
-                Join as Traditional Charity
-              </Button>
-            </Link>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
+            <div className="flex flex-wrap gap-4">
+              <Link href="/charity/signup">
+                <Button size="lg" className="gap-2" data-testid="button-join-with-contract">
+                  <ShieldCheck className="w-5 h-5" />
+                  Join with Smart Contract (Verified)
+                </Button>
+              </Link>
+
+              <Link href="/charity/signup?basic=true">
+                <Button size="lg" variant="outline" className="gap-2" data-testid="button-join-basic">
+                  <Building2 className="w-5 h-5" />
+                  Join as Traditional Charity
+                </Button>
+              </Link>
+            </div>
+
+            {/* LoginSelector removed from here - moved to Header */}
           </div>
 
           <div className="text-center">
