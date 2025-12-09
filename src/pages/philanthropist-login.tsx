@@ -39,7 +39,10 @@ export default function PhilanthropistLogin() {
             }
             const data = await response.json();
             toast({ title: "Welcome back!", description: `Logged in as ${data.email}` });
-            setLocation('/philanthropist/dashboard');
+            // Small delay to ensure session cookie is set before redirect
+            setTimeout(() => {
+                setLocation('/philanthropist/dashboard');
+            }, 100);
         } catch (err) {
             toast({ title: "Error", description: "Failed to login. Please try again.", variant: "destructive" });
             setIsLoggingIn(false);

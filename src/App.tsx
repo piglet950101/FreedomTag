@@ -101,6 +101,7 @@ function Router() {
       <Route path="/stories" component={Stories} />
       <Route path="/tag/:tagCode" component={Donor} />
       <Route path="/quick-donate" component={QuickDonate} />
+      <Route path="/quick-donate/:tagCode" component={QuickDonate} />
       <Route path="/tag-qr/:tagCode" component={TagQR} />
       <Route path="/bank/pay" component={BankPayment} />
       <Route path="/crypto/pay" component={CryptoPayment} />

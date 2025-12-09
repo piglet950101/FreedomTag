@@ -115,7 +115,7 @@ export default function BeneficiaryDashboard() {
             <DonationQRCode 
               url={`${window.location.origin}/tag/${beneficiaryData.tagCode}`}
               tagCode={beneficiaryData.tagCode} 
-              size={240} 
+              size={320} 
             />
           </CardContent>
         </Card>

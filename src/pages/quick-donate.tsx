@@ -8,6 +8,7 @@ import { useState } from "react";
 import DonationQRCode from "@/components/DonationQRCode";
 import QRScanner from "@/components/QRScanner";
 import Header from "@/components/Header";
+import BenefitsStrip from "@/components/ui/BenefitsStrip";
 
 interface TagInfo {
   tagCode: string;
@@ -40,19 +41,20 @@ export default function QuickDonate() {
   ];
 
   const handleBankPayment = async (amountZAR: number) => {
+    // Redirect to Stripe-integrated bank pay page with query params
     setIsPayingBank(true);
     try {
-      const response = await fetch('/api/donate/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tagCode, amountZAR }),
+      const ts = Date.now();
+      const bankRef = `DONOR:${tagCode}:${ts}`;
+      const params = new URLSearchParams({
+        bankRef: encodeURIComponent(bankRef),
+        tagCode: tagCode || "",
+        amountZAR: String(Math.round(Number(amountZAR) || 0)),
+        source: "public",
       });
-      const data = await response.json();
-      if (data.bankSimUrl) {
-        window.location.href = data.bankSimUrl;
-      }
+      window.location.href = `/bank/pay?${params.toString()}`;
     } catch (error) {
-      console.error('Bank payment failed:', error);
+      console.error('Bank payment redirect failed:', error);
       setIsPayingBank(false);
     }
   };
@@ -113,7 +115,6 @@ export default function QuickDonate() {
   if (!tagCode) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
 
         {/* QR Scanner Modal */}
         {showScanner && (
@@ -197,6 +198,9 @@ export default function QuickDonate() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Benefits Strip */}
+          <BenefitsStrip />
         </div>
       </div>
     );

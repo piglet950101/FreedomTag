@@ -4,6 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import QRCode from "react-qr-code";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import StripePaymentForm from "@/components/StripePaymentForm";
+import BenefitsStrip from "../components/ui/BenefitsStrip";
+
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "pk_test_placeholder");
 
 export default function BankPayment() {
   const params = new URLSearchParams(window.location.search);
@@ -17,7 +24,7 @@ export default function BankPayment() {
   const currency = params.get('currency') || '';
   const country = params.get('country') || '';
   
-  const [paymentStatus, setPaymentStatus] = useState<'scanning' | 'processing' | 'complete' | 'error'>('scanning');
+  const [paymentStatus, setPaymentStatus] = useState<'card' | 'scanning' | 'processing' | 'complete' | 'error'>('card');
   const [errorMessage, setErrorMessage] = useState('');
   const amount = Number(amountZAR).toFixed(2);
   
@@ -29,76 +36,7 @@ export default function BankPayment() {
     ref: bankRef,
   });
 
-  useEffect(() => {
-    let scanTimer: NodeJS.Timeout;
-    let processTimer: NodeJS.Timeout;
-    let redirectTimer: NodeJS.Timeout;
-
-    // Simulate scanning phase
-    scanTimer = setTimeout(() => {
-      setPaymentStatus('processing');
-      
-      // Process payment after scanning
-      processTimer = setTimeout(async () => {
-        try {
-          // Complete the payment on backend
-          const formData = new URLSearchParams();
-          formData.append('bankRef', bankRef);
-          formData.append('tagCode', tagCode);
-          formData.append('amountZAR', amountZAR);
-          if (source) {
-            formData.append('source', source);
-          }
-          if (taxReceipt) {
-            formData.append('taxReceipt', taxReceipt);
-          }
-          if (donorEmail) {
-            formData.append('donorEmail', donorEmail);
-          }
-          if (donorName) {
-            formData.append('donorName', donorName);
-          }
-          if (currency) {
-            formData.append('currency', currency);
-          }
-          if (country) {
-            formData.append('country', country);
-          }
-
-          const response = await fetch('/api/bank/settle', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString(),
-          });
-
-          // Only show success if backend confirms
-          if (response.ok && response.redirected) {
-            setPaymentStatus('complete');
-            
-            // Redirect after showing success
-            redirectTimer = setTimeout(() => {
-              window.location.href = response.url;
-            }, 2000);
-          } else {
-            // Handle settlement failure
-            setPaymentStatus('error');
-            setErrorMessage('Payment failed. Please try again.');
-          }
-        } catch (error) {
-          // Handle network or other errors
-          setPaymentStatus('error');
-          setErrorMessage('Connection error. Please try again.');
-        }
-      }, 2000);
-    }, 3000);
-
-    // Cleanup timers on unmount
-    return () => {
-      clearTimeout(scanTimer);
-      clearTimeout(processTimer);
-      clearTimeout(redirectTimer);
-    };
-  }, [bankRef, tagCode, amountZAR, source]);
+  // Legacy QR flow is disabled in favor of Stripe card UI to match stripe/donate
 
   const handleRetry = () => {
     window.location.reload();
@@ -106,7 +44,7 @@ export default function BankPayment() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md" data-testid="card-bank-payment">
+      <Card className="w-full max-w-4xl" data-testid="card-bank-payment">
         <CardHeader className="text-center pb-4">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Smartphone className="w-8 h-8 text-primary" />
@@ -124,20 +62,43 @@ export default function BankPayment() {
             <p className="text-xs text-muted-foreground">Tag: {tagCode}</p>
           </div>
 
-          {/* QR Code Section */}
-          {paymentStatus === 'scanning' && (
-            <div className="space-y-4">
-              <div className="bg-white p-6 rounded-xl flex items-center justify-center" data-testid="qr-code-container">
-                <QRCode
-                  value={qrData}
-                  size={200}
-                  level="M"
-                  data-testid="qr-code"
-                />
+          {/* Stripe Card Payment (mirrors stripe/donate) */}
+          {paymentStatus === 'card' && (
+            <div className="space-y-6" data-testid="stripe-card-section">
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium">Freedom Tag</span>
+                  <span className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold">{tagCode}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Donation Amount</span>
+                  <span className="text-lg font-bold">
+                    R {amount}
+                  </span>
+                </div>
               </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm font-medium text-foreground">Scan QR code with your banking app</p>
-                <p className="text-xs text-muted-foreground">Processing payment automatically...</p>
+
+              <Elements stripe={stripePromise}>
+                <StripePaymentForm
+                  tagCode={tagCode}
+                  amount={String(Math.round(Number(amountZAR)))}
+                  onSuccess={() => {
+                    setPaymentStatus('complete');
+                    setTimeout(() => {
+                      const back = source === 'public' ? `/donor/view/${tagCode}?paid=1` : `/tag/${tagCode}?paid=1`;
+                      window.location.href = back;
+                    }, 1500);
+                  }}
+                />
+              </Elements>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">💳 Secure Card Payment</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Enter your card details securely</li>
+                  <li>• Testing card: 4242 4242 4242 4242</li>
+                  <li>• Any future expiry and any CVC</li>
+                </ul>
               </div>
             </div>
           )}
@@ -178,12 +139,13 @@ export default function BankPayment() {
             </div>
           )}
 
-          {/* Demo Notice */}
+          {/* Note */}
           <div className="bg-primary/5 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">Demo Mode:</strong> This simulates instant payment like SnapScan or Zapper
+              This page uses Stripe card payments to match the donate flow.
             </p>
           </div>
+          <BenefitsStrip />
         </CardContent>
       </Card>
     </div>

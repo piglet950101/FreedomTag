@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Calendar, Coins, Pause, Play, X, TrendingUp, Bitcoin, ArrowLeft } from "lucide-react";
+import { Calendar, Coins, Pause, Play, X, TrendingUp, Bitcoin, ArrowLeft, ScanLine } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import QRScanner from "@/components/QRScanner";
 
 const SUPPORTED_CRYPTOS = [
   { value: 'USDT', label: 'USDT (Tether)', icon: '₮' },
@@ -58,6 +59,7 @@ interface RecurringDonation {
 export default function RecurringDonations() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
+  const [showScanner, setShowScanner] = useState(false);
 
   const form = useForm<RecurringDonationForm>({
     resolver: zodResolver(recurringDonationSchema),
@@ -235,7 +237,13 @@ export default function RecurringDonations() {
                       name="recipientId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Freedom Tag Code</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            <span>Freedom Tag Code</span>
+                            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setShowScanner(true)} data-testid="button-scan-tag">
+                              <ScanLine className="w-4 h-4" />
+                              Scan
+                            </Button>
+                          </FormLabel>
                           <FormControl>
                             <Input
                               {...field}
@@ -500,6 +508,29 @@ export default function RecurringDonations() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <QRScanner
+              onScan={(data: string) => {
+                // Try to extract tag code from URL or raw code
+                const tagMatch = data.match(/\/(?:quick-donate|tag|donor\/view)\/([A-Z0-9]+)/i) || data.match(/^([A-Z0-9]+)$/i);
+                if (tagMatch) {
+                  const scannedTag = tagMatch[1].toUpperCase();
+                  form.setValue('recipientId', scannedTag, { shouldValidate: true, shouldDirty: true });
+                  setShowScanner(false);
+                  toast({ title: 'Tag Detected', description: `Scanned ${scannedTag}` });
+                }
+              }}
+              onClose={() => setShowScanner(false)}
+              title="Scan Freedom Tag"
+              description="Point camera at tag QR code"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

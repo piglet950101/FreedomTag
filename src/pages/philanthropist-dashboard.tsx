@@ -32,8 +32,22 @@ export default function PhilanthropistDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: philanthropist, isLoading } = useQuery<PhilanthropistResponse>({
+  const { data: philanthropist, isLoading, error: authError } = useQuery<PhilanthropistResponse>({
     queryKey: ['/api/philanthropist/me'],
+    retry: false,
+    queryFn: async () => {
+      const res = await fetch('/api/philanthropist/me', {
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        throw new Error('401: Not authenticated');
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res.json();
+    },
   });
 
   const { data: cryptoBalances } = useQuery<CryptoBalances>({
@@ -60,6 +74,30 @@ export default function PhilanthropistDashboard() {
     logoutMutation.mutate();
   };
 
+  // Handle authentication errors - redirect to login
+  if (authError && !isLoading) {
+    const errorMessage = authError instanceof Error ? authError.message : String(authError);
+    if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
+      toast({
+        title: "Session Expired",
+        description: "Please log in again to access your dashboard.",
+        variant: "destructive",
+      });
+      // Use setTimeout to ensure toast is shown before redirect
+      setTimeout(() => {
+        setLocation('/philanthropist/login');
+      }, 100);
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+          <div className="text-center">
+            <Heart className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Redirecting to login...</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
@@ -72,7 +110,25 @@ export default function PhilanthropistDashboard() {
   }
 
   if (!philanthropist) {
-    setLocation('/philanthropist');
+    // Only redirect if query has completed and no data
+    if (!isLoading) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access your dashboard.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        setLocation('/philanthropist/login');
+      }, 100);
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+          <div className="text-center">
+            <Heart className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Redirecting to login...</p>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -101,8 +157,8 @@ export default function PhilanthropistDashboard() {
               Welcome back, {philanthropist.displayName || philanthropist.email}
             </p>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleLogout}
             disabled={logoutMutation.isPending}
             data-testid="button-logout"
@@ -295,7 +351,7 @@ export default function PhilanthropistDashboard() {
             <Card className="hover-elevate h-full" data-testid="card-recurring">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                   Crypto Direct Debit
                 </CardTitle>
                 <CardDescription>
@@ -341,7 +397,7 @@ export default function PhilanthropistDashboard() {
             <Card className="hover-elevate h-full" data-testid="card-spend">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" /></svg>
                   Spend at Merchants
                 </CardTitle>
                 <CardDescription>
@@ -363,7 +419,7 @@ export default function PhilanthropistDashboard() {
 
         {philanthropist.referralCode && (
           <div className="mt-6">
-            <ReferralShare 
+            <ReferralShare
               referralCode={philanthropist.referralCode}
               shareMessage={`Join Blockkoin Freedom Tag and help make a difference! Use code ${philanthropist.referralCode} when signing up.`}
             />
@@ -402,8 +458,8 @@ export default function PhilanthropistDashboard() {
             🌍 Global Impact Platform
           </h3>
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Your philanthropist account is part of a global network supporting freedom tags for 
-            the homeless, unbanked, migrant workers, and students worldwide. All donations are 
+            Your philanthropist account is part of a global network supporting freedom tags for
+            the homeless, unbanked, migrant workers, and students worldwide. All donations are
             tracked transparently while maintaining your anonymity.
           </p>
         </div>

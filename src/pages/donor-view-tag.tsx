@@ -33,7 +33,7 @@ interface Donation {
 export default function DonorViewTag() {
   const { tagCode } = useParams<{ tagCode: string }>();
   const [, setLocation] = useLocation();
-  const [amount, setAmount] = useState("50");
+  const [amount, setAmount] = useState("0");
   const [isPayingBank, setIsPayingBank] = useState(false);
   const [isPayingCrypto, setIsPayingCrypto] = useState(false);
   const { toast } = useToast();
@@ -282,10 +282,10 @@ export default function DonorViewTag() {
                   <label className="text-sm font-medium">Custom Amount (R)</label>
                   <Input
                     type="number"
-                    value={Number(amount) / 100}
+                    value={(Number(amount) / 100).toFixed(1)}
                     onChange={(e) => setAmount(String(Math.round(Number(e.target.value) * 100)))}
-                    min="1"
-                    step="1"
+                    min="0"
+                    step="0.1"
                     data-testid="input-custom-amount"
                   />
                 </div>

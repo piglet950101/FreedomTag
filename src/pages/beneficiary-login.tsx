@@ -62,8 +62,10 @@ export default function BeneficiaryLogin() {
         console.warn('Failed to load /auth/me after login:', e);
       }
 
-      // Redirect immediately to beneficiary dashboard to avoid any parsing hiccups
+      // Small delay to ensure session cookie is set before redirect
+      setTimeout(() => {
       setLocation('/beneficiary/dashboard');
+      }, 200);
       
 
       // Try to store session data, but don't block navigation if parsing fails

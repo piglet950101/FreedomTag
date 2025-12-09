@@ -103,7 +103,7 @@ export default function SignupPage() {
       });
       
       setTimeout(() => {
-        setLocation('/dashboard');
+        setLocation('/beneficiary/dashboard');
       }, 1500);
     },
     onError: (error: Error) => {

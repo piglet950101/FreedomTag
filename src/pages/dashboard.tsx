@@ -11,7 +11,8 @@ import { Loader2, Heart, Store, Users, Building, LogOut, Wallet, Gift, ShoppingB
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import BeneficiaryTagQR from "@/components/BeneficiaryTagQR";
+import DonationQRCode from "@/components/DonationQRCode";
+
 
 interface UserSession {
   user: {
@@ -46,16 +47,68 @@ export default function Dashboard() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [blockkoinAccountInput, setBlockkoinAccountInput] = useState("");
+  const [isLinkingBlockkoin, setIsLinkingBlockkoin] = useState(false);
 
-  const { data: session, isLoading } = useQuery<UserSession | null>({
+  const { data: session, isLoading, error: authError } = useQuery<UserSession | null>({
     queryKey: ["/api/auth/me"],
+    retry: false,
+    queryFn: async () => {
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        // Return null for 401, don't throw - we'll handle redirect separately
+        return null;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res.json();
+    },
   });
+
+
+  const hasBlockkoinAccount = (() => {
+    const v = String(session?.user.blockkoinAccountId || "").trim().toLowerCase();
+    return v.length > 0 && v !== "none" && v !== "null" && v !== "undefined" && v !== "0";
+  })();
 
   const { data: cryptoBalances } = useQuery<CryptoBalances>({
     queryKey: ["/api/crypto/balances"],
-    enabled: !!session?.user.blockkoinAccountId,
+    enabled: hasBlockkoinAccount,
     retry: false,
   });
+
+  const linkBlockkoinAccount = async () => {
+    const id = blockkoinAccountInput.trim();
+    if (!id || id.length < 3) {
+      toast({ title: 'Invalid ID', description: 'Enter a valid Blockkoin account ID', variant: 'destructive' });
+      return;
+    }
+    setIsLinkingBlockkoin(true);
+    try {
+      const res = await fetch('/api/blockkoin/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ accountId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to link' }));
+        throw new Error(err.error || 'Failed to link');
+      }
+      const data = await res.json();
+      toast({ title: 'Wallet linked', description: `Account ${data.blockkoinAccountId} connected` });
+      setBlockkoinAccountInput('');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    } catch (e: any) {
+      toast({ title: 'Linking failed', description: String(e.message || e), variant: 'destructive' });
+    } finally {
+      setIsLinkingBlockkoin(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -143,6 +196,7 @@ export default function Dashboard() {
     }
   };
 
+  // Handle authentication errors - show loading while checking
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -151,9 +205,49 @@ export default function Dashboard() {
     );
   }
 
-  if (!session) {
-    setLocation("/");
-    return null;
+  // Only redirect if query has completed and there's no session
+  // Don't redirect immediately - wait for query to finish
+  if (!session && !isLoading) {
+    // Check if it's an auth error or just no session
+    if (authError) {
+      const errorMessage = authError instanceof Error ? authError.message : String(authError);
+      if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to access your dashboard.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          setLocation('/beneficiary/login');
+        }, 100);
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Redirecting to login...</p>
+            </div>
+          </div>
+        );
+      }
+    }
+    
+    // If no session and no error, redirect to login (not home)
+    toast({
+      title: "Authentication Required",
+      description: "Please log in to access your dashboard.",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      setLocation('/beneficiary/login');
+    }, 100);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   const roleIcons: Record<string, any> = {
@@ -241,123 +335,123 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex gap-2">
-            <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Key className="h-4 w-4 mr-2" />
-                  Change Password
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Change Password</DialogTitle>
-                  <DialogDescription>
-                    Enter your current password and choose a new password
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="current-password"
-                        type={showCurrentPassword ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Enter current password"
-                      />
-                      <div
-                        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      >
-                        {showCurrentPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-password"
-                        type={showNewPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password"
-                      />
-                      <div
-                        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                      >
-                        {showNewPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="confirm-password"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                      />
-                      <div
-                        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsPasswordDialogOpen(false);
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    }}
-                  >
-                    Cancel
+              <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Key className="h-4 w-4 mr-2" />
+                    Change Password
                   </Button>
-                  <Button
-                    onClick={handleChangePassword}
-                    disabled={isChangingPassword}
-                  >
-                    {isChangingPassword ? "Changing..." : "Change Password"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Change Password</DialogTitle>
+                    <DialogDescription>
+                      Enter your current password and choose a new password
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="current-password"
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="new-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsPasswordDialogOpen(false);
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleChangePassword}
+                      disabled={isChangingPassword}
+                    >
+                      {isChangingPassword ? "Changing..." : "Change Password"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8  max-w-4xl">
+      <main className="container mx-auto px-4 py-8  max-w-5xl">
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-foreground">Your Roles</h2>
           <div className="flex flex-wrap gap-3" data-testid="container-roles">
@@ -449,7 +543,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {session.user.blockkoinAccountId && cryptoBalances && (
+        {hasBlockkoinAccount && cryptoBalances && (
           <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-orange-900">
@@ -500,9 +594,55 @@ export default function Dashboard() {
           </Card>
         )}
 
+        {!hasBlockkoinAccount && (
+          <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Bitcoin className="h-5 w-5 text-orange-600" />
+                Connect Blockkoin Wallet
+              </CardTitle>
+              <CardDescription>
+                Create or connect your Blockkoin wallet to view balances and send/receive crypto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => window.open('https://bkr.blockkoin.io/register', '_blank')}
+                  data-testid="button-blockkoin-onboard"
+                >
+                  Get Started on Blockkoin
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                >
+                  Open Blockkoin
+                </Button>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
+                <Input
+                  placeholder="Paste Blockkoin account ID"
+                  value={blockkoinAccountInput}
+                  onChange={(e) => setBlockkoinAccountInput(e.target.value)}
+                  data-testid="input-blockkoin-account"
+                />
+                <Button
+                  onClick={linkBlockkoinAccount}
+                  disabled={isLinkingBlockkoin || !blockkoinAccountInput.trim()}
+                  data-testid="button-link-blockkoin"
+                >
+                  {isLinkingBlockkoin ? 'Linking…' : 'Link Wallet'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="space-y-6">
           <h2 className="text-xl font-semibold text-foreground">Quick Actions</h2>
-          
+
           {session.roles.map((role) => {
             const roleStr = String(role);
             const actions = roleActions[roleStr] || [];
@@ -520,18 +660,17 @@ export default function Dashboard() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {actions.map((action, index) => {
                     // Disable "View My Tags" for beneficiaries without tags
-                    const isDisabled = roleStr === 'BENEFICIARY' && 
-                                      action.action === '/beneficiary' && 
-                                      !session.beneficiaryTag;
-                    
+                    const isDisabled = roleStr === 'BENEFICIARY' &&
+                      action.action === '/beneficiary' &&
+                      !session.beneficiaryTag;
+
                     return (
                       <Card
                         key={index}
-                        className={`transition-all ${
-                          isDisabled 
-                            ? 'opacity-50 cursor-not-allowed' 
+                        className={`transition-all ${isDisabled
+                            ? 'opacity-50 cursor-not-allowed'
                             : 'hover-elevate active-elevate-2 cursor-pointer'
-                        }`}
+                          }`}
                         onClick={() => !isDisabled && setLocation(action.action)}
                         data-testid={`card-action-${action.action.replace(/\//g, '-')}`}
                       >
@@ -541,8 +680,8 @@ export default function Dashboard() {
                             {action.title}
                           </CardTitle>
                           <CardDescription>
-                            {isDisabled 
-                              ? 'Set up a Freedom Tag first to access this feature' 
+                            {isDisabled
+                              ? 'Set up a Freedom Tag first to access this feature'
                               : action.description
                             }
                           </CardDescription>
@@ -568,11 +707,11 @@ export default function Dashboard() {
         )}
 
         {Array.isArray(session.roles) && session.roles.indexOf('BENEFICIARY') !== -1 && session.beneficiaryTag && (
-          <div className="mt-8">
-            <BeneficiaryTagQR 
+          <div className="mb-6 mt-8" >
+            <DonationQRCode
+              url={`${window.location.origin}/tag/${session.beneficiaryTag.tagCode}`}
               tagCode={session.beneficiaryTag.tagCode}
-              beneficiaryName={session.beneficiaryTag.beneficiaryName}
-              size={240}
+              size={160}
             />
           </div>
         )}
