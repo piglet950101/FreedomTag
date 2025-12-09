@@ -26,7 +26,7 @@ export default function BeneficiaryLogin() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        credentials: 'include', // CRITICAL: Include cookies for session
         body: JSON.stringify({ email, password }),
       });
 
@@ -34,46 +34,75 @@ export default function BeneficiaryLogin() {
         const error = await response.json();
         toast({
           title: "Login Failed",
-          description: error.error === 'invalid pin' ? "Invalid PIN. Please try again." : "Tag not found.",
+          description: error.error || "Invalid email or password. Please try again.",
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
 
-      // Populate session using /auth/me so dashboard finds 'beneficiary'
-      try {
-        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-        if (meRes.ok) {
-          const me = await meRes.json();
-          sessionStorage.setItem('user', JSON.stringify(me));
-          const roles: string[] = me.roles || [];
-          if (roles && roles.indexOf('BENEFICIARY') !== -1 && me.beneficiaryTag) {
-            const b = me.beneficiaryTag;
-            const beneficiarySession = {
-              tagCode: b.tagCode,
-              walletId: b.walletId || '',
-              balanceZAR: Number(b.balanceZAR) || 0,
-            };
-            sessionStorage.setItem('beneficiary', JSON.stringify(beneficiarySession));
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to load /auth/me after login:', e);
+      // Parse response once
+      const loginData = await response.json();
+      console.log('[BeneficiaryLogin] Login successful:', loginData);
+
+      // Store JWT token
+      if (loginData.token) {
+        localStorage.setItem('authToken', loginData.token);
+        console.log('[BeneficiaryLogin] JWT token stored');
       }
 
-      // Small delay to ensure session cookie is set before redirect
-      setTimeout(() => {
-      setLocation('/beneficiary/dashboard');
-      }, 200);
-      
-
-      // Try to store session data, but don't block navigation if parsing fails
+      // Verify token by calling /api/auth/me
       try {
-        const data = await response.json();
-        sessionStorage.setItem('user', JSON.stringify(data));
+        const meRes = await fetch('/api/auth/me', { 
+          headers: {
+            'Authorization': `Bearer ${loginData.token}`,
+          },
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          console.log('[BeneficiaryLogin] Token verified:', me);
+          sessionStorage.setItem('user', JSON.stringify(me));
+          
+          // Check if user has BENEFICIARY role
+          const roles: string[] = me.roles || [];
+          if (roles && roles.indexOf('BENEFICIARY') !== -1) {
+            // If user has beneficiary tag, store it
+            if (me.beneficiaryTag) {
+              const b = me.beneficiaryTag;
+              const beneficiarySession = {
+                tagCode: b.tagCode,
+                walletId: b.walletId || '',
+                balanceZAR: Number(b.balanceZAR) || 0,
+              };
+              sessionStorage.setItem('beneficiary', JSON.stringify(beneficiarySession));
+            }
+            
+            setLocation('/beneficiary/dashboard');
+          } else {
+            toast({
+              title: "Access Denied",
+              description: "Your account does not have beneficiary access.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+          }
+        } else {
+          console.error('[BeneficiaryLogin] Token verification failed:', meRes.status);
+          toast({
+            title: "Authentication Error",
+            description: "Login successful but token verification failed. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+        }
       } catch (e) {
-        console.warn('Login response parse failed, continuing navigation:', e);
+        console.error('[BeneficiaryLogin] Failed to verify token:', e);
+        toast({
+          title: "Authentication Error",
+          description: "Login successful but could not verify token. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);

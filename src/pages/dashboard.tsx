@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import DonationQRCode from "@/components/DonationQRCode";
 
-
 interface UserSession {
   user: {
     id: string;
@@ -50,11 +49,50 @@ export default function Dashboard() {
   const [blockkoinAccountInput, setBlockkoinAccountInput] = useState("");
   const [isLinkingBlockkoin, setIsLinkingBlockkoin] = useState(false);
 
+  // Check if we're on beneficiary dashboard route
+  const [location] = useLocation();
+  const isBeneficiaryDashboard = location === '/beneficiary/dashboard';
+
+  // Get JWT token
+  const getAuthToken = () => localStorage.getItem('authToken');
+
+  // Try beneficiary session first if on beneficiary dashboard, otherwise try auth/me
+  const { data: beneficiarySession, isLoading: isLoadingBeneficiary, error: beneficiaryError } = useQuery<{
+    tagCode: string;
+    beneficiaryName: string;
+    walletId: string;
+    balanceZAR: number;
+    blockkoinAccountId?: string;
+    blockkoinKycStatus?: string;
+  } | null>({
+    queryKey: ["/api/beneficiary/me"],
+    retry: false,
+    enabled: isBeneficiaryDashboard, // Always try if on beneficiary dashboard
+    queryFn: async () => {
+      const token = getAuthToken();
+      const res = await fetch('/api/beneficiary/me', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        return null;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res.json();
+    },
+  });
+
   const { data: session, isLoading, error: authError } = useQuery<UserSession | null>({
     queryKey: ["/api/auth/me"],
     retry: false,
+    enabled: !isBeneficiaryDashboard, // Only check auth/me if not on beneficiary dashboard
     queryFn: async () => {
+      const token = getAuthToken();
       const res = await fetch('/api/auth/me', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: 'include',
       });
       if (res.status === 401) {
@@ -68,7 +106,6 @@ export default function Dashboard() {
       return res.json();
     },
   });
-
 
   const hasBlockkoinAccount = (() => {
     const v = String(session?.user.blockkoinAccountId || "").trim().toLowerCase();
@@ -89,9 +126,13 @@ export default function Dashboard() {
     }
     setIsLinkingBlockkoin(true);
     try {
+      const token = getAuthToken();
       const res = await fetch('/api/blockkoin/link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ accountId: id }),
       });
@@ -112,8 +153,13 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
+      // Clear JWT token
+      localStorage.removeItem('authToken');
+      
+      const token = getAuthToken();
       await fetch("/api/auth/logout", {
         method: "POST",
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: "include",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -161,9 +207,13 @@ export default function Dashboard() {
 
     setIsChangingPassword(true);
     try {
+      const token = getAuthToken();
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         credentials: "include",
         body: JSON.stringify({
           currentPassword,
@@ -196,8 +246,12 @@ export default function Dashboard() {
     }
   };
 
+  // Handle authentication - check both regular session and beneficiary session
+  const isAuthenticated = session || beneficiarySession;
+  const isLoadingAuth = isLoading || (isBeneficiaryDashboard ? isLoadingBeneficiary : false);
+
   // Handle authentication errors - show loading while checking
-  if (isLoading) {
+  if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loading-spinner" />
@@ -207,7 +261,7 @@ export default function Dashboard() {
 
   // Only redirect if query has completed and there's no session
   // Don't redirect immediately - wait for query to finish
-  if (!session && !isLoading) {
+  if (!isAuthenticated && !isLoadingAuth) {
     // Check if it's an auth error or just no session
     if (authError) {
       const errorMessage = authError instanceof Error ? authError.message : String(authError);
@@ -245,6 +299,183 @@ export default function Dashboard() {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If beneficiary session exists, show beneficiary-specific dashboard
+  if (beneficiarySession && isBeneficiaryDashboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="mb-4">
+            <Button variant="ghost" onClick={() => setLocation('/')} data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+          </div>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-dashboard-title">
+                <Heart className="w-8 h-8 text-primary" />
+                Beneficiary Dashboard
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Tag: {beneficiarySession.tagCode}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                localStorage.removeItem('authToken');
+                try {
+                  await fetch("/api/beneficiary/logout", {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                } catch (error) {
+                  // Ignore errors
+                }
+                setLocation("/beneficiary/login");
+              }}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+          <main>
+            <Card className="mb-8 border-green-500/20 bg-green-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-900">
+                <Heart className="h-5 w-5 text-green-600" />
+                My Freedom Tag
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Tag Code</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-tag-code">
+                      {beneficiarySession.tagCode}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(beneficiarySession.tagCode);
+                        toast({
+                          title: "Copied!",
+                          description: `Tag code ${beneficiarySession.tagCode} copied to clipboard`,
+                        });
+                      }}
+                      title="Copy tag code"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Name</p>
+                  <p className="text-lg font-medium text-foreground">
+                    {beneficiarySession.beneficiaryName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Balance</p>
+                  <p className="text-lg font-medium text-foreground">
+                    R {(beneficiarySession.balanceZAR / 100).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Blockkoin Wallet Status */}
+          {(() => {
+            const hasBlockkoinAccount = (() => {
+              const v = String(beneficiarySession.blockkoinAccountId || "").trim().toLowerCase();
+              return v.length > 0 && v !== "none" && v !== "null" && v !== "undefined" && v !== "0";
+            })();
+
+            return hasBlockkoinAccount ? (
+              <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-900">
+                    <Bitcoin className="h-5 w-5 text-orange-600" />
+                    Blockkoin Wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Blockkoin Account: {beneficiarySession.blockkoinAccountId}
+                    {beneficiarySession.blockkoinKycStatus && (
+                      <Badge variant="outline" className="ml-2">
+                        KYC: {beneficiarySession.blockkoinKycStatus}
+                      </Badge>
+                    )}
+                    {beneficiarySession.blockkoinKycStatus === 'none' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="ml-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                        onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                        data-testid="button-kyc-verify"
+                      >
+                        Verify KYC
+                      </Button>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-900">
+                    <Bitcoin className="h-5 w-5 text-orange-600" />
+                    Connect Blockkoin Wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Create or connect your Blockkoin wallet to view balances and send/receive crypto.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => window.open('https://bkr.blockkoin.io/register', '_blank')}
+                      data-testid="button-blockkoin-onboard"
+                    >
+                      Get Started on Blockkoin
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                    >
+                      Open Blockkoin
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* QR Code - Smaller size */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Donation QR Code</CardTitle>
+              <CardDescription>Share this QR code to receive donations</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center py-4">
+              <DonationQRCode
+                url={`${window.location.origin}/tag/${beneficiarySession.tagCode}`}
+                tagCode={beneficiarySession.tagCode}
+                size={120}
+              />
+            </CardContent>
+          </Card>
+          </main>
         </div>
       </div>
     );

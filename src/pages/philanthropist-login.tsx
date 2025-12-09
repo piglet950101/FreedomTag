@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default function PhilanthropistLogin() {
     const [loginPassword, setLoginPassword] = useState("");
     const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!loginEmail || !loginPassword) {
             toast({ title: "Missing information", description: "Please enter email and password", variant: "destructive" });
@@ -31,19 +31,67 @@ export default function PhilanthropistLogin() {
                 body: JSON.stringify({ email: loginEmail, password: loginPassword }),
                 credentials: 'include',
             });
+            
             if (!response.ok) {
                 const error = await response.json();
                 toast({ title: "Login failed", description: error.error || "Invalid email or password", variant: "destructive" });
                 setIsLoggingIn(false);
                 return;
             }
-            const data = await response.json();
-            toast({ title: "Welcome back!", description: `Logged in as ${data.email}` });
-            // Small delay to ensure session cookie is set before redirect
-            setTimeout(() => {
-                setLocation('/philanthropist/dashboard');
-            }, 100);
+
+            const loginData = await response.json();
+            console.log('[PhilanthropistLogin] Login successful');
+
+            // Store JWT token
+            if (loginData.token) {
+                localStorage.setItem('authToken', loginData.token);
+                console.log('[PhilanthropistLogin] JWT token stored');
+            }
+
+            // Verify token by calling /api/philanthropist/me
+            try {
+                const meRes = await fetch('/api/philanthropist/me', { 
+                    headers: {
+                        'Authorization': `Bearer ${loginData.token}`,
+                    },
+                    credentials: 'include',
+                });
+                
+                if (meRes.ok) {
+                    const me = await meRes.json();
+                    console.log('[PhilanthropistLogin] Token verified:', me);
+                    
+                    // Clear query cache to ensure fresh data
+                    const { queryClient } = await import('@/lib/queryClient');
+                    queryClient.removeQueries({ queryKey: ['/api/philanthropist/me'] });
+                    
+                    toast({
+                        title: "Welcome back!",
+                        description: `Logged in as ${me.displayName || me.email}`,
+                    });
+                    
+                    // Redirect to dashboard
+                    setLocation('/philanthropist/dashboard');
+                } else {
+                    console.error('[PhilanthropistLogin] Token verification failed:', meRes.status);
+                    toast({
+                        title: "Authentication Error",
+                        description: "Login successful but token verification failed. Please try again.",
+                        variant: "destructive",
+                    });
+                    setIsLoggingIn(false);
+                }
+            } catch (e) {
+                console.error('[PhilanthropistLogin] Failed to verify token:', e);
+                toast({
+                    title: "Authentication Error",
+                    description: "Login successful but could not verify token. Please try again.",
+                    variant: "destructive",
+                });
+                setIsLoggingIn(false);
+            }
         } catch (err) {
+            console.error('[PhilanthropistLogin] Login error:', err);
             toast({ title: "Error", description: "Failed to login. Please try again.", variant: "destructive" });
             setIsLoggingIn(false);
         }

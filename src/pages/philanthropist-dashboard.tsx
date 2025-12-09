@@ -7,6 +7,7 @@ import { Heart, LogOut, Wallet, Gift, Building2, ArrowRight, UserPlus, ArrowLeft
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ReferralShare } from "@/components/ReferralShare";
+import { Loader2 } from "lucide-react";
 
 interface PhilanthropistResponse {
   id: string;
@@ -32,15 +33,59 @@ export default function PhilanthropistDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: philanthropist, isLoading, error: authError } = useQuery<PhilanthropistResponse>({
+  // Get JWT token
+  const getAuthToken = () => localStorage.getItem('authToken');
+
+  // Fetch philanthropist data - always run query, handle 401 gracefully
+  const { data: philanthropist, isLoading, error: authError } = useQuery<PhilanthropistResponse | null>({
     queryKey: ['/api/philanthropist/me'],
     retry: false,
     queryFn: async () => {
+      const token = getAuthToken();
+
+      // Always make the request - let server return 401 if no token
+      // This ensures isLoading stays true during the fetch
       const res = await fetch('/api/philanthropist/me', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        // Return null for 401, don't throw - we'll handle redirect separately
+        console.log('[PhilanthropistDashboard] 401 response - returning null');
+        localStorage.removeItem('authToken');
+        return null;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+
+      const data = await res.json();
+
+      if (!data || !data.id) {
+        console.error('[PhilanthropistDashboard] Invalid data structure:', data);
+        return null;
+      }
+
+      return data;
+    },
+  });
+
+  // Fetch crypto balances if Blockkoin account exists
+  const { data: cryptoBalances } = useQuery<CryptoBalances>({
+    queryKey: ['/api/crypto/balances'],
+    enabled: !!philanthropist?.blockkoinAccountId,
+    retry: false,
+    queryFn: async () => {
+      const token = getAuthToken();
+      const res = await fetch('/api/crypto/balances', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: 'include',
       });
       if (res.status === 401) {
-        throw new Error('401: Not authenticated');
+        throw new Error('Not authenticated');
       }
       if (!res.ok) {
         const text = await res.text();
@@ -50,23 +95,24 @@ export default function PhilanthropistDashboard() {
     },
   });
 
-  const { data: cryptoBalances } = useQuery<CryptoBalances>({
-    queryKey: ['/api/crypto/balances'],
-    enabled: !!philanthropist?.blockkoinAccountId,
-    retry: false,
-  });
-
+  // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/philanthropist/logout', {});
+      const token = getAuthToken();
+      await fetch('/api/philanthropist/logout', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      localStorage.removeItem('authToken');
+      queryClient.removeQueries({ queryKey: ['/api/philanthropist/me'] });
     },
     onSuccess: () => {
-      queryClient.clear();
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
-      });
-      setLocation('/philanthropist');
+      toast({ title: "Logged out", description: "You have been logged out successfully." });
+      setLocation('/');
+    },
+    onError: () => {
+      toast({ title: "Logout failed", description: "There was an error logging out.", variant: "destructive" });
     },
   });
 
@@ -74,68 +120,68 @@ export default function PhilanthropistDashboard() {
     logoutMutation.mutate();
   };
 
-  // Handle authentication errors - redirect to login
-  if (authError && !isLoading) {
-    const errorMessage = authError instanceof Error ? authError.message : String(authError);
-    if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
-      toast({
-        title: "Session Expired",
-        description: "Please log in again to access your dashboard.",
-        variant: "destructive",
-      });
-      // Use setTimeout to ensure toast is shown before redirect
-      setTimeout(() => {
-        setLocation('/philanthropist/login');
-      }, 100);
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
-          <div className="text-center">
-            <Heart className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Redirecting to login...</p>
-          </div>
-        </div>
-      );
-    }
-  }
+  const formatZAR = (cents: number) => {
+    return `R ${(cents / 100).toFixed(2)}`;
+  };
 
+  // Handle authentication errors - show loading while checking
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
         <div className="text-center">
-          <Heart className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
           <p className="text-muted-foreground">Loading your account...</p>
         </div>
       </div>
     );
   }
 
-  if (!philanthropist) {
-    // Only redirect if query has completed and no data
-    if (!isLoading) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access your dashboard.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        setLocation('/philanthropist/login');
-      }, 100);
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
-          <div className="text-center">
-            <Heart className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Redirecting to login...</p>
+  // Only redirect if query has completed and there's no session
+  // Don't redirect immediately - wait for query to finish
+  if (!philanthropist && !isLoading) {
+    // Check if it's an auth error or just no session
+    if (authError) {
+      const errorMessage = authError instanceof Error ? authError.message : String(authError);
+      if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to access your dashboard.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          setLocation('/philanthropist/login');
+        }, 100);
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-muted-foreground">Redirecting to login...</p>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     }
-    return null;
+
+    // If no session and no error, redirect to login (not home)
+    toast({
+      title: "Authentication Required",
+      description: "Please log in to access your dashboard.",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      setLocation('/philanthropist/login');
+    }, 100);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
-  const formatZAR = (cents: number) => {
-    return `R ${(cents / 100).toFixed(2)}`;
-  };
-
+  // Render dashboard
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">

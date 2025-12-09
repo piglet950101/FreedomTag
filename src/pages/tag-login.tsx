@@ -22,6 +22,7 @@ export default function TagLogin() {
       const response = await fetch('/api/beneficiary/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // CRITICAL: Include cookies for session
         body: JSON.stringify({ tagCode, pin }),
       });
 
