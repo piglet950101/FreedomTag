@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Store, Wallet, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
+import { goBackOrHome } from "@/lib/utils";
 
 const signupSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -41,7 +42,7 @@ export default function SignupPage() {
       title: "Sign Up as Beneficiary",
       description: "Get access to support through Freedom Tags",
       icon: Heart,
-      color: "text-red-500",
+      color: "text-green-600",
     },
     merchant: {
       title: "Become a Community Commerce Partner",
@@ -102,7 +103,7 @@ export default function SignupPage() {
       });
       
       setTimeout(() => {
-        setLocation('/dashboard');
+        setLocation('/beneficiary/dashboard');
       }, 1500);
     },
     onError: (error: Error) => {
@@ -121,17 +122,15 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/welcome">
-          <Button variant="ghost" className="mb-6" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </Link>
+        <Button variant="ghost" className="mb-6" onClick={goBackOrHome} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
         <Card>
-          <CardHeader>
-            <div className={`w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3`}>
-              <Icon className={`w-6 h-6 ${config.color}`} />
+          <CardHeader className="text-center">
+            <div className={`w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3`}>
+              <Icon className={`w-8 h-8 ${config.color}`} />
             </div>
             <CardTitle className="text-2xl">{config.title}</CardTitle>
             <CardDescription>{config.description}</CardDescription>
@@ -190,21 +189,19 @@ export default function SignupPage() {
                       <FormLabel>Password</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Input 
-                            type={showPassword ? "text" : "password"} 
-                            {...field} 
+                          <Input
+                            className="pr-10"
+                            type={showPassword ? "text" : "password"}
+                            {...field}
                             data-testid="input-password"
                           />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full"
+                          <div
                             onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-3 flex items-center cursor-pointer text-gray-400 hover:text-gray-600"
                             data-testid="button-toggle-password"
                           >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </div>
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -220,21 +217,19 @@ export default function SignupPage() {
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Input 
-                            type={showConfirmPassword ? "text" : "password"} 
-                            {...field} 
+                          <Input
+                            className="pr-10"
+                            type={showConfirmPassword ? "text" : "password"}
+                            {...field}
                             data-testid="input-confirm-password"
                           />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full"
+                          <div
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute inset-y-0 right-3 flex items-center cursor-pointer text-gray-400 hover:text-gray-600"
                             data-testid="button-toggle-confirm-password"
                           >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </div>
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -244,7 +239,7 @@ export default function SignupPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-green-500 hover:bg-green-600 text-white"
                   disabled={signupMutation.isPending}
                   data-testid="button-signup"
                 >
@@ -253,7 +248,7 @@ export default function SignupPage() {
 
                 <p className="text-sm text-center text-muted-foreground">
                   Already have an account?{" "}
-                  <Link href="/login" className="text-primary hover:underline" data-testid="link-login">
+                  <Link href="/beneficiary/login" className="text-primary hover:underline" data-testid="link-login">
                     Sign in
                   </Link>
                 </p>

@@ -27,6 +27,8 @@ import {
   Trash2,
   Globe
 } from "lucide-react";
+import { goBackOrHome } from "@/lib/utils";
+import LoginSelector from '@/components/LoginSelector';
 
 export default function Header() {
   return (
@@ -64,7 +66,7 @@ export default function Header() {
                     <Heart className="w-4 h-4 mr-2" />
                     Donate
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent>
+                  <NavigationMenuContent className="md:right-0 md:left-auto">
                     <div className="w-[400px] p-4">
                       <div className="grid gap-3">
                         <Link href="/donor">
@@ -80,7 +82,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/quick-donate">
+                        <Link href="/quick-donate/">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-quick-donate">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -93,7 +95,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/recurring-donations">
+                        <Link href="/philanthropist/recurring">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-recurring">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -150,7 +152,7 @@ export default function Header() {
                             </div>
                           </NavigationMenuLink>
                         </Link>
-                        <Link href="/beneficiary/login">
+                        <Link href="/beneficiary">
                           <NavigationMenuLink asChild>
                             <div className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer" data-testid="link-beneficiary-login">
                               <div className="flex items-center gap-2 text-sm font-medium">
@@ -188,6 +190,7 @@ export default function Header() {
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger data-testid="nav-platform-menu">
+                    <TrendingUp className="w-4 h-4 mr-2" />
                     Platform
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -265,13 +268,10 @@ export default function Header() {
               </NavigationMenuList>
             </NavigationMenu>
 
-            {/* Join Button */}
-            <Link href="/charity/signup">
-              <Button variant="outline" className="gap-2" data-testid="nav-join">
-                <Building2 className="w-4 h-4" />
-                Become a Verified Cause Partner
-              </Button>
-            </Link>
+            {/* Header actions */}
+            <div className="flex items-center gap-2 ml-6">
+              <LoginSelector />
+            </div>
           </div>
 
           {/* Mobile Menu */}
@@ -287,6 +287,10 @@ export default function Header() {
                   <SheetTitle className="text-left">Navigation</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-4">
+                  {/* Back */}
+                  <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-back" onClick={goBackOrHome}>
+                    Back
+                  </Button>
                   {/* Home */}
                   <Link href="/">
                     <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-home">
@@ -294,6 +298,8 @@ export default function Header() {
                       Home
                     </Button>
                   </Link>
+
+                  {/* (Login / Sign Up handled by LoginSelector) */}
 
                   {/* Donate Section */}
                   <div className="space-y-2">
@@ -304,13 +310,13 @@ export default function Header() {
                         Donor Portal
                       </Button>
                     </Link>
-                    <Link href="/quick-donate">
+                    <Link href="/quick-donate/">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-quick-donate">
                         <Zap className="w-4 h-4" />
                         Quick Donate
                       </Button>
                     </Link>
-                    <Link href="/recurring-donations">
+                    <Link href="/philanthropist/recurring">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-recurring">
                         <Repeat className="w-4 h-4" />
                         Recurring Donations
@@ -333,7 +339,7 @@ export default function Header() {
                         Quick Tag Setup
                       </Button>
                     </Link>
-                    <Link href="/beneficiary/login">
+                    <Link href="/beneficiary">
                       <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-beneficiary">
                         <Users className="w-4 h-4" />
                         Beneficiary Login

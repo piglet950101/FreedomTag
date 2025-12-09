@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { goBackOrHome } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -75,7 +76,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link href="/welcome">
-          <Button variant="ghost" className="mb-6" data-testid="button-back">
+          <Button variant="ghost" className="mb-6" onClick={goBackOrHome} data-testid="button-back">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -173,7 +174,7 @@ export default function LoginPage() {
 
                 <p className="text-sm text-center text-muted-foreground">
                   Don't have an account?{" "}
-                  <Link href="/welcome" className="text-primary hover:underline" data-testid="link-signup">
+                  <Link href="/beneficiary/signup" className="text-primary hover:underline" data-testid="link-signup">
                     Create one now
                   </Link>
                 </p>

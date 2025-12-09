@@ -16,7 +16,7 @@ const runtimeErrorPlugin = await (async () => {
 
 // Load Vite env to determine backend URL for proxying `/api` during dev.
 const env = loadEnv(process.env.NODE_ENV || 'development', process.cwd());
-const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:3000';
+const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default defineConfig({
   plugins: [

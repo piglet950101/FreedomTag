@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Send, Search, Heart, UserPlus, Building2 } from "lucide-react";
+import { ArrowLeft, Send, Search, Heart, UserPlus, Building2, Camera } from "lucide-react";
+import QRScanner from '@/components/QRScanner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -125,6 +127,78 @@ export default function PhilanthropistGive() {
       return;
     }
     searchMutation.mutate(tagCode.trim().toUpperCase());
+  };
+
+  const [showScanner, setShowScanner] = useState(false);
+
+  const extractTagFromScan = (data: string) => {
+    // Robust parsing of QR payloads. Scanned data may be:
+    // - a plain tag code like "CH456634"
+    // - a URL containing the tag as path segment, e.g. "/quick-donate/CH456634" or "http://host/quick-donate/CH456634"
+    // - a URL with query param like "?tag=CH456634"
+
+    const tryNormalize = (s: string) => (s || '').trim();
+
+    // First, try to parse as a URL. If it fails, try adding a protocol to allow host-only strings like "localhost:5173/..."
+    let url: URL | null = null;
+    try {
+      url = new URL(data);
+    } catch (e) {
+      try {
+        // Prepend protocol and try again
+        url = new URL('https://' + data);
+      } catch (e2) {
+        url = null;
+      }
+    }
+
+    const tagRegex = /^[A-Z0-9\-]{3,40}$/i;
+
+    if (url) {
+      // Check common query params
+      const q = url.searchParams.get('tag') || url.searchParams.get('tagCode') || url.searchParams.get('code');
+      if (q && tagRegex.test(q)) return q.trim().toUpperCase();
+
+      // Check path segments - return the first segment that looks like a tag code
+      const parts = url.pathname.split('/').filter(Boolean);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        if (tagRegex.test(p)) return p.trim().toUpperCase();
+      }
+    }
+
+    // If not a URL or URL parsing didn't yield a tag, inspect the raw string
+    const raw = tryNormalize(data);
+    // If it's a path-like string (starts with /), split and look for a matching segment
+    if (raw.startsWith('/')) {
+      const parts = raw.split('/').filter(Boolean);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        if (tagRegex.test(p)) return p.trim().toUpperCase();
+      }
+    }
+
+    // Fallback: if the entire payload looks like a tag, return it
+    if (tagRegex.test(raw)) return raw.toUpperCase();
+
+    return null;
+  };
+
+  const handleScanResult = (data: string) => {
+    const code = extractTagFromScan(data);
+    if (!code) {
+      toast({ title: 'Invalid QR', description: 'Scanned QR did not contain a valid tag code', variant: 'destructive' });
+      setShowScanner(false);
+      return;
+    }
+
+    console.log('QR scan result -> tag code:', code);
+    toast({ title: 'QR Scanned', description: `Tag code ${code} detected`, });
+    setTagCode(code);
+    setGiveType('search');
+    // run the existing search mutation
+    searchMutation.mutate(code);
+    setShowScanner(false);
   };
 
   const handleGive = () => {
@@ -276,14 +350,26 @@ export default function PhilanthropistGive() {
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     data-testid="input-tag-code"
                   />
-                  <Button 
-                    type="button"
-                    onClick={handleSearch}
-                    disabled={searchMutation.isPending}
-                    data-testid="button-search"
-                  >
-                    {searchMutation.isPending ? '...' : <Search className="w-4 h-4" />}
-                  </Button>
+                  <div className="flex items-stretch gap-2">
+                    <Button 
+                      type="button"
+                      onClick={handleSearch}
+                      disabled={searchMutation.isPending}
+                      data-testid="button-search"
+                    >
+                      {searchMutation.isPending ? '...' : <Search className="w-4 h-4" />}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowScanner(true)}
+                      data-testid="button-scan-qr"
+                      title="Scan QR Code"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {searchedTag && (
@@ -334,6 +420,18 @@ export default function PhilanthropistGive() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* QR Scanner Dialog */}
+        <Dialog open={showScanner} onOpenChange={(open) => setShowScanner(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Scan Recipient QR</DialogTitle>
+            </DialogHeader>
+            <div>
+              <QRScanner onScan={handleScanResult} onClose={() => setShowScanner(false)} />
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {(selectedOrg || searchedTag) && (
           <>
@@ -460,13 +558,7 @@ export default function PhilanthropistGive() {
           </ol>
         </div>
 
-        <div className="mt-6">
-          <DonationQRCode 
-            url={`${window.location.origin}/philanthropist/give`}
-            tagCode="Philanthropist Portal"
-            size={160}
-          />
-        </div>
+        {/* Removed QR code per requirement: not needed in organizations/search section */}
       </div>
 
       {showStoryDialog && donationTransaction && (

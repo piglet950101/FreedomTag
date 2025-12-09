@@ -3,9 +3,11 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PasswordField from '@/components/PasswordField';
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, Mail, Lock, Building2, Globe, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Heart, Mail, Lock, Building2, Globe, Facebook, Twitter, Instagram, Linkedin, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CharitySignup() {
@@ -171,6 +173,12 @@ export default function CharitySignup() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
       <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <div className="mb-4">
+          <Button variant="ghost" className="mb-2" onClick={() => window.history.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2 flex items-center justify-center gap-3">
             <Building2 className="w-8 h-8 text-primary" />
@@ -223,9 +231,8 @@ export default function CharitySignup() {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password *</Label>
-                <Input
+                <PasswordField
                   id="password"
-                  type="password"
                   placeholder="Create a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -370,6 +377,13 @@ export default function CharitySignup() {
           >
             {isSigningUp ? "Creating Organization..." : "Create Organization Account"}
           </Button>
+          
+          <p className="text-center mt-4">
+            Already have an account?{' '}
+            <Link href="/charity/login">
+              <a className="text-primary underline">Login</a>
+            </Link>
+          </p>
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-6">

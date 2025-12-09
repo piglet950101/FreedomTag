@@ -11,6 +11,7 @@ export default function CryptoPayment() {
   const params = new URLSearchParams(window.location.search);
   const cryptoRef = params.get('cryptoRef') || '';
   const tagCode = params.get('tagCode') || '';
+  const source = params.get('source') || '';
   const amountZAR = Number(params.get('amountZAR') || 0);
   const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -38,32 +39,32 @@ export default function CryptoPayment() {
   const usdtAmount = (amountZAR / CRYPTO_RATES.USDT).toFixed(2);
 
   const cryptoOptions = [
-    { 
-      id: 'USDT', 
-      name: 'USDT (Tether)', 
-      symbol: '₮', 
-      color: 'bg-green-600', 
+    {
+      id: 'USDT',
+      name: 'USDT (Tether)',
+      symbol: '₮',
+      color: 'bg-green-600',
       amount: usdtAmount,
       network: 'Ethereum (ERC-20)',
       confirmations: '12 confirmations required',
       recommended: true,
       benefits: 'Stable value • Lowest fees • Fastest settlement'
     },
-    { 
-      id: 'BTC', 
-      name: 'Bitcoin', 
-      symbol: '₿', 
-      color: 'bg-orange-500', 
+    {
+      id: 'BTC',
+      name: 'Bitcoin',
+      symbol: '₿',
+      color: 'bg-orange-500',
       amount: btcAmount,
       network: 'Bitcoin Network',
       confirmations: '2 confirmations required',
       recommended: false
     },
-    { 
-      id: 'ETH', 
-      name: 'Ethereum', 
-      symbol: 'Ξ', 
-      color: 'bg-blue-600', 
+    {
+      id: 'ETH',
+      name: 'Ethereum',
+      symbol: 'Ξ',
+      color: 'bg-blue-600',
       amount: ethAmount,
       network: 'Ethereum Mainnet',
       confirmations: '12 confirmations required',
@@ -84,18 +85,21 @@ export default function CryptoPayment() {
 
   const handleConfirmPayment = async () => {
     if (!selectedCrypto) return;
-    
+
     setIsProcessing(true);
-    
+
     // Simulate blockchain confirmation delay
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     try {
       const formData = new URLSearchParams();
       formData.append('cryptoRef', cryptoRef);
       formData.append('tagCode', tagCode);
       formData.append('amountZAR', amountZAR.toString());
       formData.append('crypto', selectedCrypto);
+      if (source) {
+        formData.append('source', source);
+      }
 
       const response = await fetch('/api/crypto/settle', {
         method: 'POST',
@@ -160,7 +164,7 @@ export default function CryptoPayment() {
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">Choose cryptocurrency:</p>
                 {cryptoOptions.map((crypto) => (
-                  <Card 
+                  <Card
                     key={crypto.id}
                     className={`hover-elevate active-elevate-2 cursor-pointer transition-all ${crypto.recommended ? 'border-primary/50 bg-primary/5' : ''}`}
                     onClick={() => setSelectedCrypto(crypto.id)}
@@ -187,7 +191,7 @@ export default function CryptoPayment() {
                             )}
                           </div>
                         </div>
-                        <Button 
+                        <Button
                           variant={crypto.recommended ? "default" : "outline"}
                           data-testid={`button-select-${crypto.id.toLowerCase()}`}
                         >
@@ -209,9 +213,9 @@ export default function CryptoPayment() {
                     <h4 className="font-semibold text-foreground">{selectedOption?.name}</h4>
                     <p className="text-sm text-muted-foreground">{selectedOption?.network}</p>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setSelectedCrypto(null)}
                     data-testid="button-change-crypto"
                   >
@@ -222,12 +226,12 @@ export default function CryptoPayment() {
                 {/* QR Code */}
                 <div className="flex flex-col items-center gap-4">
                   <div className="bg-white p-4 rounded-lg" data-testid="qr-code-container">
-                    <QRCode 
+                    <QRCode
                       value={BLOCKCHAIN_ADDRESSES[selectedCrypto as keyof typeof BLOCKCHAIN_ADDRESSES]}
                       size={200}
                     />
                   </div>
-                  
+
                   <div className="text-center space-y-1">
                     <p className="text-lg font-bold text-foreground" data-testid="text-crypto-amount">
                       {selectedOption?.amount} {selectedCrypto}

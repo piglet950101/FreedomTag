@@ -3,8 +3,8 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PasswordField from '@/components/PasswordField';
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart, Mail, Lock, User, ArrowLeft, Gift } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -13,11 +13,11 @@ import { ViralReferralPopup } from "@/components/ViralReferralPopup";
 export default function PhilanthropistSignup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   // Extract referral code from URL
   const urlParams = new URLSearchParams(window.location.search);
   const urlReferralCode = urlParams.get('ref');
-  
+
   // Signup form
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -26,7 +26,7 @@ export default function PhilanthropistSignup() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [signupData, setSignupData] = useState<any>(null);
   const [showViralPopup, setShowViralPopup] = useState(false);
-  
+
   useEffect(() => {
     if (urlReferralCode) {
       toast({
@@ -35,15 +35,12 @@ export default function PhilanthropistSignup() {
       });
     }
   }, []);
-  
-  // Login form
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Note: this page is signup-only. Login has its own route.
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!signupEmail || !signupPassword) {
       toast({
         title: "Missing information",
@@ -59,8 +56,8 @@ export default function PhilanthropistSignup() {
       const response = await fetch('/api/philanthropist/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: signupEmail, 
+        body: JSON.stringify({
+          email: signupEmail,
           password: signupPassword,
           displayName: displayName || undefined,
           referredBy: referralCode || undefined,
@@ -81,15 +78,15 @@ export default function PhilanthropistSignup() {
 
       const data = await response.json();
       setSignupData(data);
-      
+
       // Show viral popup after 1 second
       setTimeout(() => setShowViralPopup(true), 1000);
-      
+
       toast({
         title: "Account created!",
         description: "Welcome to the Freedom Tag philanthropist community",
       });
-      
+
       // Don't redirect immediately - let user share first
       // They'll be redirected when they close the popup or after a timeout
     } catch (error) {
@@ -102,69 +99,15 @@ export default function PhilanthropistSignup() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!loginEmail || !loginPassword) {
-      toast({
-        title: "Missing information",
-        description: "Please enter email and password",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    setIsLoggingIn(true);
-
-    try {
-      const response = await fetch('/api/philanthropist/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: loginEmail, 
-          password: loginPassword,
-        }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast({
-          title: "Login failed",
-          description: error.error || "Invalid email or password",
-          variant: "destructive",
-        });
-        setIsLoggingIn(false);
-        return;
-      }
-
-      const data = await response.json();
-      toast({
-        title: "Welcome back!",
-        description: `Logged in as ${data.email}`,
-      });
-      
-      // Redirect to philanthropist dashboard
-      setLocation('/philanthropist/dashboard');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to login. Please try again.",
-        variant: "destructive",
-      });
-      setIsLoggingIn(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/">
-          <Button variant="ghost" className="mb-4" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-        </Link>
+        <Button variant="ghost" className="mb-4" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
         <Card className="shadow-xl" data-testid="card-philanthropist-auth">
           <CardHeader className="text-center">
@@ -177,142 +120,95 @@ export default function PhilanthropistSignup() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
-                <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-              </TabsList>
+            <div className="w-full">
+              <div className="mb-4 text-center">
+                <div>
+                  <span className="text-[24px] font-normal text-black inline-block px-4 py-2 rounded-md">Sign Up</span>
+                </div>
+              </div>
 
-              <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Email
-                    </Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      data-testid="input-signup-email"
-                      required
-                    />
-                  </div>
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email" className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    data-testid="input-signup-email"
+                    required
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" />
-                      Password
-                    </Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Create a secure password"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      data-testid="input-signup-password"
-                      required
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password" className="flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    Password
+                  </Label>
+                  <PasswordField
+                    id="signup-password"
+                    placeholder="Create a secure password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    data-testid="input-signup-password"
+                    required
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="display-name" className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Display Name <span className="text-muted-foreground text-xs">(Optional)</span>
-                    </Label>
-                    <Input
-                      id="display-name"
-                      placeholder="How you'd like to be known"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      data-testid="input-display-name"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="display-name" className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Display Name <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="display-name"
+                    placeholder="How you'd like to be known"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    data-testid="input-display-name"
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="referral-code" className="flex items-center gap-2">
-                      <Gift className="w-4 h-4" />
-                      Referral Code <span className="text-muted-foreground text-xs">(Optional)</span>
-                    </Label>
-                    <Input
-                      id="referral-code"
-                      placeholder="Enter referral code"
-                      value={referralCode}
-                      onChange={(e) => setReferralCode(e.target.value)}
-                      data-testid="input-referral-code-signup"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="referral-code" className="flex items-center gap-2">
+                    <Gift className="w-4 h-4" />
+                    Referral Code <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="referral-code"
+                    placeholder="Enter referral code"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                    data-testid="input-referral-code-signup"
+                  />
+                </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    size="lg"
-                    disabled={isSigningUp}
-                    data-testid="button-signup"
-                  >
-                    {isSigningUp ? "Creating Account..." : "Create Account"}
-                  </Button>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={isSigningUp}
+                  data-testid="button-signup"
+                >
+                  {isSigningUp ? "Creating Account..." : "Create Account"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-4">
+                  Your account will remain anonymous. Only you can see your giving history.
+                </p>
 
-                  <p className="text-xs text-muted-foreground text-center mt-4">
-                    Your account will remain anonymous. Only you can see your giving history.
-                  </p>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email" className="flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Email
-                    </Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      data-testid="input-login-email"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password" className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" />
-                      Password
-                    </Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      data-testid="input-login-password"
-                      required
-                    />
-                  </div>
-
-                  <div className="text-right">
-                    <Link href="/forgot-password" className="text-sm text-primary hover:underline" data-testid="link-forgot-password">
-                      Forgot password?
-                    </Link>
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    size="lg"
-                    disabled={isLoggingIn}
-                    data-testid="button-login"
-                  >
-                    {isLoggingIn ? "Logging In..." : "Login"}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                <p className="text-sm text-center mt-2">
+                  Already have an account?{' '}
+                  <Link href="/philanthropist/login" className="text-primary hover:underline">
+                    Login
+                  </Link>
+                </p>
+              </form>
+              {/* end signup form */}
+            </div>
 
             <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-900 dark:text-blue-100">

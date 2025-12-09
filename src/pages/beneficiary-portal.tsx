@@ -123,12 +123,10 @@ export default function BeneficiaryPortal() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/">
-          <Button variant="ghost" className="mb-4" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-        </Link>
+        <Button variant="ghost" className="mb-4" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
         <Card className="shadow-xl" data-testid="card-beneficiary-login">
           <CardHeader>

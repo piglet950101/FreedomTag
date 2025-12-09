@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Set this in the Netlify site settings (or override here for quick tests)
+  # Replace the value below with your backend base URL (e.g. https://api.example.com)
+  VITE_BACKEND_URL = "https://freedomtagserver-production.up.railway.app"
+
+[[redirects]]
+  # Proxy all /api requests to the backend. This avoids CORS problems since requests
+  # are made to the same origin (Netlify) and then proxied to the backend.
+  from = "/api/*"
+  to = "https://freedomtagserver-production.up.railway.app/:splat"
+  status = 200
+  force = true
+
+# SPA fallback - redirect all non-API routes to index.html for client-side routing
+# This must come AFTER the API proxy redirect above
+# The /api/* redirect with force=true will take precedence, so this only matches non-API routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

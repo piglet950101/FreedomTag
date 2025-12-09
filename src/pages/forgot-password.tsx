@@ -113,7 +113,7 @@ export default function ForgotPassword() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation("/donor")}
+                onClick={() => window.history.back()}
                 data-testid="button-back"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />

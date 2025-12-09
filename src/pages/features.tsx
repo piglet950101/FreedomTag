@@ -41,14 +41,14 @@ const features = [
       {
         title: "Quick Donate",
         description: "Instant QR code donations - scan and give in seconds",
-        link: "/quick-donate",
+        link: "/quick-donate/",
         icon: Zap,
         testId: "feature-quick-donate"
       },
       {
         title: "Recurring Crypto Donations",
         description: "Set up automated monthly cryptocurrency donations with USD-pegged amounts",
-        link: "/recurring-donations",
+        link: "/philanthropist/recurring",
         icon: Repeat,
         testId: "feature-recurring"
       },
@@ -84,7 +84,7 @@ const features = [
       {
         title: "Beneficiary Login",
         description: "Access your Freedom Tag wallet with PIN or biometric authentication",
-        link: "/beneficiary/login",
+        link: "/beneficiary",
         icon: Users,
         testId: "feature-beneficiary-login"
       },
@@ -133,7 +133,7 @@ const features = [
       {
         title: "Organization Portal",
         description: "Manage your charity account, view donations, and update information",
-        link: "/organization-portal",
+        link: "/organization",
         icon: Building2,
         testId: "feature-org-portal"
       },
@@ -225,14 +225,14 @@ const features = [
       {
         title: "Crypto Payment",
         description: "Pay with cryptocurrency - automatic conversion to preferred fiat",
-        link: "/crypto-payment",
+        link: "/crypto/pay",
         icon: DollarSign,
         testId: "feature-crypto-payment"
       },
       {
         title: "Bank Payment",
         description: "Traditional bank transfer payment method",
-        link: "/bank-payment",
+        link: "/bank/pay",
         icon: CreditCard,
         testId: "feature-bank-payment"
       },
@@ -279,7 +279,6 @@ const features = [
 export default function Features() {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         {/* Hero */}

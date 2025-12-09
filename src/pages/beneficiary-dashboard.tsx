@@ -3,6 +3,7 @@ import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserCircle, Send, LogOut, Wallet } from "lucide-react";
+import DonationQRCode from "@/components/DonationQRCode";
 import { useQuery } from "@tanstack/react-query";
 
 interface BeneficiaryData {
@@ -24,6 +25,8 @@ export default function BeneficiaryDashboard() {
   // Check for session data
   useEffect(() => {
     const sessionData = sessionStorage.getItem('beneficiary');
+    console.log("sessionData", sessionData);
+    
     if (!sessionData) {
       setLocation('/kiosk/beneficiary');
       return;
@@ -100,6 +103,22 @@ export default function BeneficiaryDashboard() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="max-w-4xl mx-auto px-6 py-12">
+        <Card className="hover-elevate">
+          <CardHeader>
+            <CardTitle className="text-2xl">Your Tag QR</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center py-6">
+            <DonationQRCode 
+              url={`${window.location.origin}/tag/${beneficiaryData.tagCode}`}
+              tagCode={beneficiaryData.tagCode} 
+              size={320} 
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Actions */}
