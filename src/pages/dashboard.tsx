@@ -35,7 +35,7 @@ interface CryptoBalances {
   USDT: number;
 }
 
-export default function Dashboard() {
+export default function BeneficiaryDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -58,30 +58,70 @@ export default function Dashboard() {
 
   // Try beneficiary session first if on beneficiary dashboard, otherwise try auth/me
   const { data: beneficiarySession, isLoading: isLoadingBeneficiary, error: beneficiaryError } = useQuery<{
-    tagCode: string;
+    tagCode: string | null;
     beneficiaryName: string;
-    walletId: string;
+    walletId: string | null;
     balanceZAR: number;
     blockkoinAccountId?: string;
     blockkoinKycStatus?: string;
+    hasTag?: boolean;
   } | null>({
     queryKey: ["/api/beneficiary/me"],
     retry: false,
     enabled: isBeneficiaryDashboard, // Always try if on beneficiary dashboard
     queryFn: async () => {
       const token = getAuthToken();
+      console.log('[BeneficiaryDashboard] Fetching /api/beneficiary/me with token:', token ? 'present' : 'missing');
+      
       const res = await fetch('/api/beneficiary/me', {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: 'include',
       });
+      
+      console.log('[BeneficiaryDashboard] /api/beneficiary/me response status:', res.status);
+      
       if (res.status === 401) {
+        console.log('[BeneficiaryDashboard] 401 - Not authenticated');
         return null;
       }
+      
       if (!res.ok) {
+        // For 404, return a response indicating no tag (user exists but no tag)
+        if (res.status === 404) {
+          const errorData = await res.json().catch(() => ({}));
+          console.log('[BeneficiaryDashboard] 404 error data:', errorData);
+          // If it's a "No beneficiary tag found" error, return a response with hasTag: false
+          if (errorData.error?.includes('No beneficiary tag found') || errorData.error?.includes('User not found')) {
+            return {
+              tagCode: null,
+              beneficiaryName: '',
+              walletId: null,
+              balanceZAR: 0,
+              hasTag: false,
+            };
+          }
+        }
         const text = await res.text();
+        console.error('[BeneficiaryDashboard] Error response:', text);
         throw new Error(`${res.status}: ${text || res.statusText}`);
       }
-      return res.json();
+      
+      const data = await res.json();
+      console.log('[BeneficiaryDashboard] /api/beneficiary/me response data:', data);
+      
+      // Ensure hasTag is set and tagCode is properly handled
+      const result = {
+        tagCode: data.tagCode || null,
+        beneficiaryName: data.beneficiaryName || '',
+        walletId: data.walletId || null,
+        balanceZAR: data.balanceZAR || 0,
+        blockkoinAccountId: data.blockkoinAccountId,
+        blockkoinKycStatus: data.blockkoinKycStatus,
+        hasTag: data.hasTag !== undefined ? data.hasTag : !!data.tagCode,
+      };
+      
+      console.log('[BeneficiaryDashboard] Processed beneficiary session:', result);
+      return result;
     },
   });
 
@@ -174,6 +214,43 @@ export default function Dashboard() {
         description: "There was an error logging out. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleBeneficiaryLogout = async () => {
+    try {
+      // Clear JWT token from localStorage
+      localStorage.removeItem('authToken');
+      
+      // Call logout endpoint
+      const token = getAuthToken();
+      await fetch("/api/beneficiary/logout", {
+        method: "POST",
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      
+      // Redirect to login
+      setLocation("/beneficiary/login");
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, clear token and redirect
+      localStorage.removeItem('authToken');
+      queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      toast({
+        title: "Logged out",
+        description: "You have been logged out.",
+      });
+      setLocation("/beneficiary/login");
     }
   };
 
@@ -322,23 +399,14 @@ export default function Dashboard() {
                 Beneficiary Dashboard
               </h1>
               <p className="text-muted-foreground mt-1">
-                Tag: {beneficiarySession.tagCode}
+                {beneficiarySession.tagCode && beneficiarySession.tagCode.trim() 
+                  ? `Tag: ${beneficiarySession.tagCode}` 
+                  : 'No tag assigned yet'}
               </p>
             </div>
             <Button
               variant="outline"
-              onClick={async () => {
-                localStorage.removeItem('authToken');
-                try {
-                  await fetch("/api/beneficiary/logout", {
-                    method: "POST",
-                    credentials: "include",
-                  });
-                } catch (error) {
-                  // Ignore errors
-                }
-                setLocation("/beneficiary/login");
-              }}
+              onClick={handleBeneficiaryLogout}
               data-testid="button-logout"
             >
               <LogOut className="w-4 h-4 mr-2" />
@@ -346,53 +414,81 @@ export default function Dashboard() {
             </Button>
           </div>
           <main>
-            <Card className="mb-8 border-green-500/20 bg-green-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-900">
-                <Heart className="h-5 w-5 text-green-600" />
-                My Freedom Tag
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Tag Code</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-2xl font-bold text-foreground" data-testid="text-tag-code">
-                      {beneficiarySession.tagCode}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => {
-                        navigator.clipboard.writeText(beneficiarySession.tagCode);
-                        toast({
-                          title: "Copied!",
-                          description: `Tag code ${beneficiarySession.tagCode} copied to clipboard`,
-                        });
-                      }}
-                      title="Copy tag code"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+            {!beneficiarySession.tagCode || !beneficiarySession.tagCode.trim() ? (
+              // No tag - show create tag prompt
+              <Card className="mb-8 border-yellow-500/20 bg-yellow-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-yellow-900">
+                    <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    No Freedom Tag Found
+                  </CardTitle>
+                  <CardDescription className="text-yellow-800">
+                    You don't have a Freedom Tag yet. Create one to receive donations and access services.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => setLocation('/quick-tag-setup')}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                    data-testid="button-create-tag"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Tag
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              // Has tag - show tag info
+              <Card className="mb-8 border-green-500/20 bg-green-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-900">
+                    <Heart className="h-5 w-5 text-green-600" />
+                    My Freedom Tag
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Tag Code</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-2xl font-bold text-foreground" data-testid="text-tag-code">
+                          {beneficiarySession.tagCode}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            if (beneficiarySession.tagCode) {
+                              navigator.clipboard.writeText(beneficiarySession.tagCode);
+                              toast({
+                                title: "Copied!",
+                                description: `Tag code ${beneficiarySession.tagCode} copied to clipboard`,
+                              });
+                            }
+                          }}
+                          title="Copy tag code"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Name</p>
+                      <p className="text-lg font-medium text-foreground">
+                        {beneficiarySession.beneficiaryName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Balance</p>
+                      <p className="text-lg font-medium text-foreground">
+                        R {(beneficiarySession.balanceZAR / 100).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Name</p>
-                  <p className="text-lg font-medium text-foreground">
-                    {beneficiarySession.beneficiaryName}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Balance</p>
-                  <p className="text-lg font-medium text-foreground">
-                    R {(beneficiarySession.balanceZAR / 100).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
 
           {/* Blockkoin Wallet Status */}
           {(() => {
@@ -461,20 +557,21 @@ export default function Dashboard() {
             );
           })()}
 
-          {/* QR Code - Smaller size */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Donation QR Code</CardTitle>
-              <CardDescription>Share this QR code to receive donations</CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center justify-center py-4">
-              <DonationQRCode
-                url={`${window.location.origin}/tag/${beneficiarySession.tagCode}`}
-                tagCode={beneficiarySession.tagCode}
-                size={120}
-              />
-            </CardContent>
-          </Card>
+          {/* QR Code - Only show if tag exists */}
+          {beneficiarySession.tagCode && beneficiarySession.tagCode.trim() && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Donation QR Code</CardTitle>
+                <CardDescription>Share this QR code to receive donations</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center py-4">
+                <DonationQRCode
+                  tagCode={beneficiarySession.tagCode}
+                  size={120}
+                />
+              </CardContent>
+            </Card>
+          )}
           </main>
         </div>
       </div>

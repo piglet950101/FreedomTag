@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, ArrowLeft, Lock, Shield } from "lucide-react";
+import { UserCircle, ArrowLeft, Lock, Shield, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function TagLogin() {
@@ -12,6 +12,7 @@ export default function TagLogin() {
   const { toast } = useToast();
   const [tagCode, setTagCode] = useState("");
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -101,16 +102,28 @@ export default function TagLogin() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="pin"
-                    type="password"
+                    type={showPin ? "text" : "password"}
                     inputMode="numeric"
                     placeholder="Enter your 4-6 digit PIN"
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
                     maxLength={6}
                     required
-                    className="pl-10 text-lg h-12"
+                    className="pl-10 pr-9 text-lg h-12"
                     data-testid="input-pin"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-pin"
+                  >
+                    {showPin ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 

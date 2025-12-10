@@ -6,8 +6,8 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DonationQRCodeProps {
-  url: string;
-  tagCode?: string;
+  url?: string; // Optional, kept for backward compatibility
+  tagCode?: string; // Tag code to encode in QR (preferred over url)
   size?: number;
   showTitle?: boolean;
 }
@@ -21,13 +21,29 @@ export default function DonationQRCode({
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const handleCopyUrl = async () => {
+  // Use tagCode for QR code value if available, fallback to url for backward compatibility
+  const qrValue = tagCode || url || '';
+
+  const handleCopyTagCode = async () => {
     try {
-      await navigator.clipboard.writeText(url);
+      // Prioritize tagCode over url for copying
+      const textToCopy = tagCode || url || '';
+      if (!textToCopy) {
+        toast({
+          title: "Nothing to copy",
+          description: "Tag code or URL not available",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       toast({
-        title: "Link copied!",
-        description: "Share this link to collect donations",
+        title: tagCode ? "Tag code copied!" : "Link copied!",
+        description: tagCode 
+          ? `Tag code ${tagCode} copied to clipboard`
+          : "Link copied to clipboard",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -56,7 +72,7 @@ export default function DonationQRCode({
           
           <div className="bg-white p-4 rounded-lg flex justify-center" data-testid="qr-code-container">
             <QRCode
-              value={url}
+              value={qrValue}
               size={size}
               style={{ height: "auto", maxWidth: "100%", width: "100%" }}
               viewBox={`0 0 ${size} ${size}`}
@@ -69,8 +85,8 @@ export default function DonationQRCode({
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={handleCopyUrl}
-              data-testid="button-copy-url"
+              onClick={handleCopyTagCode}
+              data-testid="button-copy-tag-code"
             >
               {copied ? (
                 <>
@@ -80,13 +96,13 @@ export default function DonationQRCode({
               ) : (
                 <>
                   <Copy className="w-4 h-4 mr-2" />
-                  Copy Link
+                  {tagCode ? "Copy Tag Code" : "Copy Link"}
                 </>
               )}
             </Button>
             
             <p className="text-xs text-center text-muted-foreground">
-              Share this QR code or link
+              Share this QR code or tag code
             </p>
           </div>
         </div>

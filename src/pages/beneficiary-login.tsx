@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, ArrowLeft, Lock, ShieldCheck, Heart } from "lucide-react";
+import { UserCircle, ArrowLeft, Lock, ShieldCheck, Heart, Eye, EyeOff } from "lucide-react";
 import { goBackOrHome } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -15,10 +15,11 @@ export default function BeneficiaryLogin() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -31,10 +32,9 @@ export default function BeneficiaryLogin() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
         toast({
           title: "Login Failed",
-          description: error.error || "Invalid email or password. Please try again.",
+          description: "Incorrect email or password.",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -161,16 +161,30 @@ export default function BeneficiaryLogin() {
                   </Label>
                   <a className="text-sm text-green-600 hover:underline" onClick={() => setLocation('/forgot-password')}>Forgot password?</a>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-2"
-                  required
-                  data-testid="input-password"
-                />
+                <div className="relative mt-2">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-9"
+                    required
+                    data-testid="input-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-password"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

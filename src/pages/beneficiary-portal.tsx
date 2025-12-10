@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Lock, Wallet, Scan } from "lucide-react";
+import { ArrowLeft, Lock, Wallet, Scan, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -13,6 +13,7 @@ export default function BeneficiaryPortal() {
   const [, setLocation] = useLocation();
   const [tagCode, setTagCode] = useState("");
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -170,16 +171,31 @@ export default function BeneficiaryPortal() {
 
                   <div className="space-y-2">
                     <Label htmlFor="pin">PIN</Label>
-                    <Input
-                      id="pin"
-                      type="password"
-                      placeholder="Enter your 6-digit PIN"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      maxLength={6}
-                      disabled={isLoading}
-                      data-testid="input-pin"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="pin"
+                        type={showPin ? "text" : "password"}
+                        placeholder="Enter your 6-digit PIN"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        maxLength={6}
+                        className="pr-9"
+                        disabled={isLoading}
+                        data-testid="input-pin"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        data-testid="button-toggle-pin"
+                      >
+                        {showPin ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <Button

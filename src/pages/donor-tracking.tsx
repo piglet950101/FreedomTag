@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,12 @@ import {
   Building2,
   Coins,
   CreditCard,
-  Mail
+  Mail,
+  ScanLine
 } from "lucide-react";
 import { format } from "date-fns";
+import QRScanner from "@/components/QRScanner";
+import { useToast } from "@/hooks/use-toast";
 
 interface DonationTracking {
   donations: Array<{
@@ -128,12 +131,14 @@ interface DonationFlow {
 }
 
 export default function DonorTracking() {
+  const { toast } = useToast();
   const [searchMethod, setSearchMethod] = useState<'email' | 'tag'>('email');
   const [email, setEmail] = useState("");
   const [tagCode, setTagCode] = useState("");
   const [searchEmail, setSearchEmail] = useState("");
   const [searchTagCode, setSearchTagCode] = useState("");
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const { data: tracking, isLoading: isLoadingEmail, error: trackingError } = useQuery<DonationTracking>({
     queryKey: [`/api/donor/track/${searchEmail}`],
@@ -150,7 +155,7 @@ export default function DonorTracking() {
     enabled: !!selectedTxId,
   });
 
-  const handleEmailSearch = (e: React.FormEvent) => {
+  const handleEmailSearch = (e: FormEvent) => {
     e.preventDefault();
     setSearchEmail(email);
     setSearchTagCode("");
@@ -158,12 +163,38 @@ export default function DonorTracking() {
     setSearchMethod('email');
   };
 
-  const handleTagSearch = (e: React.FormEvent) => {
+  const handleTagSearch = (e: FormEvent) => {
     e.preventDefault();
     setSearchTagCode(tagCode);
     setSearchEmail("");
     setSelectedTxId(null);
     setSearchMethod('tag');
+  };
+
+  const handleQRScan = (data: string) => {
+    // Extract tag code from scanned QR data
+    // QR data may be: /tag/TAG123, /quick-donate/TAG123, /donor/view/TAG123, or just TAG123
+    const tagMatch = data.match(/\/(?:tag|quick-donate|donor\/view)\/([A-Z0-9]+)/i) || data.match(/^([A-Z0-9]+)$/i);
+    
+    if (tagMatch) {
+      const scannedTag = tagMatch[1].toUpperCase();
+      setTagCode(scannedTag);
+      setSearchTagCode(scannedTag);
+      setSearchEmail("");
+      setSelectedTxId(null);
+      setSearchMethod('tag');
+      setShowScanner(false);
+      toast({
+        title: 'Tag Detected',
+        description: `Scanned ${scannedTag}`,
+      });
+    } else {
+      toast({
+        title: 'Invalid QR Code',
+        description: 'The scanned QR code does not contain a valid Freedom Tag',
+        variant: 'destructive',
+      });
+    }
   };
 
   const isLoading = isLoadingEmail || isLoadingTag;
@@ -242,13 +273,23 @@ export default function DonorTracking() {
                   className="flex-1"
                   data-testid="input-tag-code"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setShowScanner(true)}
+                  data-testid="button-scan-qr"
+                >
+                  <ScanLine className="w-4 h-4" />
+                  Scan
+                </Button>
                 <Button type="submit" className="gap-2" data-testid="button-search-tag">
                   <Search className="w-4 h-4" />
                   Search
                 </Button>
               </form>
               <p className="text-sm text-muted-foreground mt-2">
-                Enter your Freedom Tag account number to see all donations made and received
+                Enter your Freedom Tag account number or scan a QR code to see all donations made and received
               </p>
             </TabsContent>
           </Tabs>
@@ -784,6 +825,20 @@ export default function DonorTracking() {
           </Button>
         </Link>
       </div>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <QRScanner
+              onScan={handleQRScan}
+              onClose={() => setShowScanner(false)}
+              title="Scan Freedom Tag"
+              description="Point camera at tag QR code"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

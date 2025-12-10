@@ -10,13 +10,22 @@ export default function StripeSuccessPage() {
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get('session_id');
   const tagCode = searchParams.get('tag');
+  const redirectUrl = searchParams.get('redirect');
 
   useEffect(() => {
     // Optional: Verify session on backend
     if (sessionId) {
       console.log('Payment successful! Session:', sessionId);
     }
-  }, [sessionId]);
+    
+    // Auto-redirect if redirect URL is provided
+    if (redirectUrl) {
+      const timer = setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId, redirectUrl]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -58,20 +67,37 @@ export default function StripeSuccessPage() {
           </div>
 
           <div className="flex gap-2">
-            {tagCode && (
-              <Link href={`/tag/${tagCode}`} className="flex-1">
-                <Button variant="outline" className="w-full">
-                  View Tag
+            {redirectUrl ? (
+              <Link href={redirectUrl} className="flex-1">
+                <Button className="w-full">
+                  Continue
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
+            ) : (
+              <>
+                {tagCode && (
+                  <Link href={`/tag/${tagCode}`} className="flex-1">
+                    <Button variant="outline" className="w-full">
+                      View Tag
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/beneficiary/dashboard" className="flex-1">
+                  <Button className="w-full">
+                    Go to Dashboard
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </>
             )}
-            <Link href="/dashboard" className="flex-1">
-              <Button className="w-full">
-                Go to Dashboard
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
           </div>
+          
+          {redirectUrl && (
+            <p className="text-xs text-center text-muted-foreground">
+              Redirecting you back in a moment...
+            </p>
+          )}
 
           <p className="text-xs text-center text-muted-foreground">
             You should receive a receipt email from Stripe shortly.

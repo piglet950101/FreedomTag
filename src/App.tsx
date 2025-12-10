@@ -19,6 +19,7 @@ import KioskHome from "@/pages/kiosk-home";
 import KioskDonate from "@/pages/kiosk-donate";
 import BeneficiaryLogin from "@/pages/beneficiary-login";
 import BeneficiaryDashboard from "@/pages/beneficiary-dashboard";
+import KioskBeneficiaryDashboard from "@/pages/kiosk-beneficiary-dashboard";
 import BeneficiaryTransfer from "@/pages/beneficiary-transfer";
 import UserDashboard from "@/pages/user-dashboard";
 import TagLogin from "@/pages/tag-login";
@@ -44,7 +45,6 @@ import ChangePinPage from "@/pages/change-pin";
 import WelcomePage from "@/pages/welcome";
 import SignupPage from "@/pages/signup";
 import LoginPage from "@/pages/login";
-import Dashboard from "@/pages/dashboard";
 import CryptoDemo from "@/pages/crypto-demo";
 import VerifiedCharities from "@/pages/verified-charities";
 import DustyBinVote from "@/pages/dusty-bin-vote";
@@ -67,10 +67,9 @@ function Router() {
       <Route path="/welcome-old" component={WelcomePage} />
       <Route path="/beneficiary/signup" component={SignupPage} />
       <Route path="/beneficiary/login" component={BeneficiaryLogin} />
-      {/* <Route path="/beneficiary/dashboard" component={BeneficiaryDashboard} /> */}
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password/:token" component={ResetPassword} />
-      <Route path="/beneficiary/dashboard" component={Dashboard} />
+      <Route path="/beneficiary/dashboard" component={BeneficiaryDashboard} />
       <Route path="/crypto-demo" component={CryptoDemo} />
       <Route path="/home" component={Home} />
       <Route path="/verified-charities" component={VerifiedCharities} />
@@ -115,7 +114,7 @@ function Router() {
       <Route path="/kiosk" component={KioskHome} />
       <Route path="/kiosk/donate/:tagCode" component={KioskDonate} />
       <Route path="/kiosk/beneficiary" component={BeneficiaryLogin} />
-      <Route path="/kiosk/beneficiary/dashboard" component={BeneficiaryDashboard} />
+      <Route path="/kiosk/beneficiary/dashboard" component={KioskBeneficiaryDashboard} />
       <Route path="/kiosk/beneficiary/transfer" component={BeneficiaryTransfer} />
       <Route path="/tag/login" component={TagLogin} />
       <Route path="/user/dashboard/:tagCode" component={UserDashboard} />

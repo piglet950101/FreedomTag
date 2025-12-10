@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export default function CharityLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -60,11 +60,9 @@ export default function CharityLogin() {
         setLocation(`/charity/credibility/${tagCode}`);
       }, 1000);
     } catch (error: any) {
-      const msg = String(error?.message || '').toLowerCase();
-      const isInvalidCreds = msg.includes('invalid email or password');
       toast({
-        title: isInvalidCreds ? "Invalid email or password" : "Login failed",
-        description: isInvalidCreds ? "Please verify your credentials and try again" : (error.message || "Please check your credentials"),
+        title: "Login Failed",
+        description: "Incorrect email or password.",
         variant: "destructive",
       });
       setIsLoggingIn(false);
@@ -80,8 +78,8 @@ export default function CharityLogin() {
         </Button>
 
         <Card>
-          <CardHeader>
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+          <CardHeader className="text-center">
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3 mx-auto">
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <CardTitle className="text-2xl">Organization Login</CardTitle>

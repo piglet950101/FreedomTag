@@ -12,9 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Calendar, Coins, Pause, Play, X, TrendingUp, Bitcoin, ArrowLeft, ScanLine } from "lucide-react";
+import { Calendar, Coins, Pause, Play, X, TrendingUp, Bitcoin, ArrowLeft, ScanLine, Loader2, Heart } from "lucide-react";
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import QRScanner from "@/components/QRScanner";
 
 const SUPPORTED_CRYPTOS = [
@@ -56,10 +56,59 @@ interface RecurringDonation {
   createdAt: string;
 }
 
+interface PhilanthropistResponse {
+  id: string;
+  email: string;
+  displayName: string | null;
+}
+
 export default function RecurringDonations() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [showScanner, setShowScanner] = useState(false);
+
+  // Get JWT token
+  const getAuthToken = () => localStorage.getItem('authToken');
+
+  // Check authentication - fetch philanthropist data (optional, don't block page)
+  const { data: philanthropist, isLoading: isLoadingAuth } = useQuery<PhilanthropistResponse | null>({
+    queryKey: ['/api/philanthropist/me'],
+    retry: false,
+    enabled: !!getAuthToken(), // Only check if token exists
+    queryFn: async () => {
+      const token = getAuthToken();
+
+      if (!token) {
+        return null;
+      }
+
+      const res = await fetch('/api/philanthropist/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem('authToken');
+        return null;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+
+      const data = await res.json();
+
+      if (!data || !data.id) {
+        return null;
+      }
+
+      return data;
+    },
+  });
+
+  const isAuthenticated = !!philanthropist;
 
   const form = useForm<RecurringDonationForm>({
     resolver: zodResolver(recurringDonationSchema),
@@ -85,12 +134,37 @@ export default function RecurringDonations() {
     ? orgsResp
     : (orgsResp?.organizations ?? []);
 
+  // Only fetch recurring donations if authenticated
   const { data: recurringDonations = [], isLoading: loadingDonations } = useQuery<RecurringDonation[]>({
     queryKey: ['/api/philanthropist/recurring-donations'],
+    retry: false,
+    enabled: isAuthenticated, // Only fetch if authenticated
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      const res = await fetch('/api/philanthropist/recurring-donations', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        throw new Error('Not authenticated');
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res.json();
+    },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: RecurringDonationForm) => {
+      // Check authentication before creating
+      if (!isAuthenticated || !getAuthToken()) {
+        throw new Error('Please log in to create a recurring donation');
+      }
       return apiRequest('POST', '/api/philanthropist/recurring-donations', data);
     },
     onSuccess: () => {
@@ -100,14 +174,33 @@ export default function RecurringDonations() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/philanthropist/recurring-donations'] });
       form.reset();
-      setActiveTab('manage');
+      if (isAuthenticated) {
+        setActiveTab('manage');
+      }
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create recurring donation",
-        variant: "destructive",
-      });
+      if (error.message.includes('log in')) {
+        toast({
+          title: "Login Required",
+          description: "Please log in to create a recurring donation.",
+          variant: "destructive",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation('/philanthropist/login')}
+            >
+              Go to Login
+            </Button>
+          ),
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create recurring donation",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -144,8 +237,11 @@ export default function RecurringDonations() {
     });
   };
 
+  // Don't block page loading - allow viewing without authentication
+
   return (
-    <div className="container mx-auto py-8 px-4" data-testid="page-recurring-donations">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
+      <div className="container mx-auto py-8 px-4" data-testid="page-recurring-donations">
       <div className="mb-4">
         <Link href="/philanthropist/dashboard">
           <Button variant="ghost" className="mb-2" data-testid="button-back">
@@ -161,27 +257,37 @@ export default function RecurringDonations() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'manage')}>
-        <TabsList className="grid w-full max-w-md grid-cols-2 mb-6" data-testid="tabs-recurring-donations">
-          <TabsTrigger value="create" data-testid="tab-create">
-            <Coins className="w-4 h-4 mr-2" />
-            Create New
-          </TabsTrigger>
-          <TabsTrigger value="manage" data-testid="tab-manage">
-            <Calendar className="w-4 h-4 mr-2" />
-            Manage ({recurringDonations.length})
-          </TabsTrigger>
-        </TabsList>
+      {isAuthenticated ? (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'manage')}>
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6" data-testid="tabs-recurring-donations">
+            <TabsTrigger value="create" data-testid="tab-create">
+              <Coins className="w-4 h-4 mr-2" />
+              Create New
+            </TabsTrigger>
+            <TabsTrigger value="manage" data-testid="tab-manage">
+              <Calendar className="w-4 h-4 mr-2" />
+              Manage ({recurringDonations.length})
+            </TabsTrigger>
+          </TabsList>
 
         <TabsContent value="create">
           <Card>
             <CardHeader>
               <CardTitle>Set Up Monthly Crypto Donation</CardTitle>
-              <CardDescription>
-                Choose your preferred cryptocurrency and amount to donate automatically each month
-              </CardDescription>
+              
             </CardHeader>
             <CardContent>
+              {!isAuthenticated && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-900 dark:text-blue-100 mb-3">
+                    <strong>Login Required</strong>
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                    Please log in to create and manage recurring donations.
+                  </p>
+
+                </div>
+              )}
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
@@ -386,7 +492,7 @@ export default function RecurringDonations() {
                   <div className="flex gap-3">
                     <Button
                       type="submit"
-                      disabled={createMutation.isPending}
+                      disabled={createMutation.isPending || !isAuthenticated}
                       className="flex-1"
                       data-testid="button-create-recurring"
                     >
@@ -394,6 +500,11 @@ export default function RecurringDonations() {
                       {createMutation.isPending ? 'Creating...' : 'Set Up Monthly Donation'}
                     </Button>
                   </div>
+                  {!isAuthenticated && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      You must be logged in to create a recurring donation
+                    </p>
+                  )}
                 </form>
               </Form>
             </CardContent>
@@ -401,8 +512,8 @@ export default function RecurringDonations() {
         </TabsContent>
 
         <TabsContent value="manage">
-          <div className="space-y-4">
-            {loadingDonations ? (
+            <div className="space-y-4">
+              {loadingDonations ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
                   Loading your recurring donations...
@@ -505,9 +616,38 @@ export default function RecurringDonations() {
                 );
               })
             )}
-          </div>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="w-5 h-5" />
+              Crypto Direct Debit Donations
+            </CardTitle>
+            <CardDescription>
+              Set up automated monthly cryptocurrency donations to support your favorite causes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="p-6 text-center">
+              <p className="text-lg font-medium mb-2">Login Required</p>
+              <p className="text-muted-foreground mb-6">
+                Please log in to create and manage recurring donations.
+              </p>
+              <Button
+                onClick={() => setLocation('/philanthropist/login')}
+                className="gap-2"
+                data-testid="button-login-prompt"
+              >
+                <Heart className="w-4 h-4" />
+                Log In to Continue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* QR Scanner Modal */}
       {showScanner && (
@@ -531,6 +671,7 @@ export default function RecurringDonations() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

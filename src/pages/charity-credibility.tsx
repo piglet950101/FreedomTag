@@ -123,6 +123,69 @@ export default function CharityCredibility() {
             Back to home
           </Button>
         </div>
+        {/* Welcome Section */}
+        <Card className="border-green-200 bg-green-50/50">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 rounded-full border-2 border-green-500 flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-8 h-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl mb-2">Welcome to Blockkoin Freedom Tag!</CardTitle>
+            <CardDescription className="text-base">
+              Your organization is now part of the global impact network.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Organization Info Box */}
+            <Card className="bg-green-100/50 border-green-300">
+              <CardContent className="pt-6 space-y-3">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Your Organization ID</div>
+                  <div className="text-sm font-mono text-foreground break-all">{organization.id}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Your Freedom Tag Code</div>
+                  <div className="text-lg font-bold text-green-600">{tag.tagCode}</div>
+                </div>
+                {tag.referralCode && (
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-1">Your Referral Code (Share to earn R50)</div>
+                    <div className="text-base font-semibold text-foreground">{tag.referralCode}</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Next Steps */}
+            <Card className="bg-muted/50 border-muted">
+              <CardHeader>
+                <CardTitle className="text-lg">Next Steps:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-600 mt-2 flex-shrink-0" />
+                  <div className="text-sm text-foreground">
+                    Share your Freedom Tag code <span className="font-semibold text-green-600">{tag.tagCode}</span> with donors.
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-600 mt-2 flex-shrink-0" />
+                  <div className="text-sm text-foreground">
+                    Check your credibility dashboard at <span className="font-mono text-primary">/charity/credibility/{tag.tagCode}</span>.
+                  </div>
+                </div>
+                {tag.referralCode && (
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-600 mt-2 flex-shrink-0" />
+                    <div className="text-sm text-foreground">
+                      Share your referral code to invite others and earn R50 each.
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
+
         {/* Header with Logo and Trust Badge */}
         <Card>
           <CardHeader>
@@ -141,7 +204,7 @@ export default function CharityCredibility() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <CardTitle className="text-2xl">{organization.name}</CardTitle>
-                  <Badge variant="default" className="gap-1">
+                  <Badge variant="default" className="flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     Verified
                   </Badge>

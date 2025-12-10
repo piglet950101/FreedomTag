@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { Shield, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ChangePinPage() {
@@ -15,6 +15,9 @@ export default function ChangePinPage() {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [showConfirmNewPin, setShowConfirmNewPin] = useState(false);
   const [pinChanged, setPinChanged] = useState(false);
 
   const changePinMutation = useMutation({
@@ -145,17 +148,32 @@ export default function ChangePinPage() {
 
             <div className="space-y-2">
               <Label htmlFor="current-pin">Current PIN *</Label>
-              <Input
-                id="current-pin"
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={currentPin}
-                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter current PIN"
-                required
-                data-testid="input-current-pin"
-              />
+              <div className="relative">
+                <Input
+                  id="current-pin"
+                  type={showCurrentPin ? "text" : "password"}
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={currentPin}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter current PIN"
+                  className="pr-9"
+                  required
+                  data-testid="input-current-pin"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPin(!showCurrentPin)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  data-testid="button-toggle-current-pin"
+                >
+                  {showCurrentPin ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Enter the PIN you're currently using (or the default PIN given to you)
               </p>
@@ -166,17 +184,32 @@ export default function ChangePinPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="new-pin">New PIN *</Label>
-                <Input
-                  id="new-pin"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter new PIN"
-                  required
-                  data-testid="input-new-pin"
-                />
+                <div className="relative">
+                  <Input
+                    id="new-pin"
+                    type={showNewPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter new PIN"
+                    className="pr-9"
+                    required
+                    data-testid="input-new-pin"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-new-pin"
+                  >
+                    {showNewPin ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Choose a 4-digit PIN that's easy for you to remember
                 </p>
@@ -184,17 +217,32 @@ export default function ChangePinPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-new-pin">Confirm New PIN *</Label>
-                <Input
-                  id="confirm-new-pin"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={confirmNewPin}
-                  onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Confirm new PIN"
-                  required
-                  data-testid="input-confirm-new-pin"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-new-pin"
+                    type={showConfirmNewPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Confirm new PIN"
+                    className="pr-9"
+                    required
+                    data-testid="input-confirm-new-pin"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPin(!showConfirmNewPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-confirm-new-pin"
+                  >
+                    {showConfirmNewPin ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

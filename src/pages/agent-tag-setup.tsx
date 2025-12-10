@@ -1,12 +1,11 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, FormEvent } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { ArrowLeft, UserCheck, Shield, CheckCircle2, Scan } from "lucide-react";
+import { ArrowLeft, UserCheck, Shield, CheckCircle2, Scan, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AgentTagResponse {
@@ -24,38 +23,11 @@ export default function AgentTagSetup() {
   const [beneficiaryPhone, setBeneficiaryPhone] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [accessCode, setAccessCode] = useState("");
+  const [showAccessCode, setShowAccessCode] = useState(false);
   const [tagCreated, setTagCreated] = useState<AgentTagResponse | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const createTagMutation = useMutation({
-    mutationFn: async (data: { beneficiaryName: string; beneficiaryPhone?: string; organizationId: string; accessCode: string }) => {
-      const response = await fetch('/api/agent/create-tag', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create tag');
-      }
-      return response.json();
-    },
-    onSuccess: (data: AgentTagResponse) => {
-      setTagCreated(data);
-      toast({ 
-        title: "Success!", 
-        description: `Tag ${data.tagCode} created. Now complete biometric verification.` 
-      });
-    },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Error", 
-        description: error.message, 
-        variant: "destructive" 
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!beneficiaryName.trim()) {
@@ -85,12 +57,62 @@ export default function AgentTagSetup() {
       return;
     }
 
-    createTagMutation.mutate({
-      beneficiaryName,
-      beneficiaryPhone: beneficiaryPhone.trim() || undefined,
-      organizationId,
-      accessCode,
-    });
+    setIsCreating(true);
+
+    try {
+      const response = await fetch('/api/agent/create-tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beneficiaryName,
+          beneficiaryPhone: beneficiaryPhone.trim() || undefined,
+          organizationId,
+          accessCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+        let errorMessage = 'Failed to create tag';
+        
+        // For 403 errors (invalid access code), show access code error message immediately
+        if (status === 403) {
+          errorMessage = 'Invalid access code. Please check your access code and try again.';
+        } else {
+          // For other errors, try to get the error message from response
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            errorMessage = response.statusText || errorMessage;
+          }
+        }
+        
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setIsCreating(false);
+        return;
+      }
+
+      const data: AgentTagResponse = await response.json();
+      setTagCreated(data);
+      setIsCreating(false);
+      toast({ 
+        title: "Success!", 
+        description: `Tag ${data.tagCode} created. Now complete biometric verification.` 
+      });
+    } catch (error: any) {
+      console.error('Agent tag creation error:', error);
+      toast({
+        title: "Error",
+        description: error?.message || 'An error occurred while creating the tag. Please try again.',
+        variant: "destructive",
+      });
+      setIsCreating(false);
+    }
   };
 
   if (tagCreated) {
@@ -223,15 +245,30 @@ export default function AgentTagSetup() {
 
               <div className="space-y-2">
                 <Label htmlFor="access-code">Access Code *</Label>
-                <Input
-                  id="access-code"
-                  type="password"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value)}
-                  placeholder="Your organization's access code"
-                  required
-                  data-testid="input-access-code"
-                />
+                <div className="relative">
+                  <Input
+                    id="access-code"
+                    type={showAccessCode ? "text" : "password"}
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value)}
+                    placeholder="Your organization's access code"
+                    className="pr-9"
+                    required
+                    data-testid="input-access-code"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAccessCode(!showAccessCode)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-access-code"
+                  >
+                    {showAccessCode ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Demo: Use the organization's email address as access code
                 </p>
@@ -289,10 +326,10 @@ export default function AgentTagSetup() {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={createTagMutation.isPending}
+                disabled={isCreating}
                 data-testid="button-create-tag"
               >
-                {createTagMutation.isPending ? "Creating Tag..." : "Create Tag & Start Verification"}
+                {isCreating ? "Creating Tag..." : "Create Tag & Start Verification"}
               </Button>
             </form>
           </CardContent>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Building2, Users, Tag as TagIcon, Plus, ChevronRight, Shield, ExternalLink, RotateCcw } from "lucide-react";
+import { ArrowLeft, Building2, Users, Tag as TagIcon, Plus, ChevronRight, Shield, ExternalLink, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,8 @@ export default function OrganizationPortal() {
   const [pinRecoveryDialog, setPinRecoveryDialog] = useState<{ open: boolean; url?: string; tagCode?: string }>({ open: false });
   const [recoveryTagCode, setRecoveryTagCode] = useState("");
   const [newPinValue, setNewPinValue] = useState("");
+  const [showNewTagPin, setShowNewTagPin] = useState(false);
+  const [showNewPinValue, setShowNewPinValue] = useState(false);
   const [giveTagCode, setGiveTagCode] = useState("");
   const [giveAmount, setGiveAmount] = useState("");
   const [giveDonorName, setGiveDonorName] = useState("");
@@ -365,15 +367,30 @@ export default function OrganizationPortal() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="pin">PIN (6 digits)</Label>
-                      <Input
-                        id="pin"
-                        type="password"
-                        maxLength={6}
-                        placeholder="Enter PIN"
-                        value={newTagPin}
-                        onChange={(e) => setNewTagPin(e.target.value)}
-                        data-testid="input-pin"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="pin"
+                          type={showNewTagPin ? "text" : "password"}
+                          maxLength={6}
+                          placeholder="Enter PIN"
+                          value={newTagPin}
+                          onChange={(e) => setNewTagPin(e.target.value)}
+                          className="pr-9"
+                          data-testid="input-pin"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewTagPin(!showNewTagPin)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          data-testid="button-toggle-pin"
+                        >
+                          {showNewTagPin ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="beneficiaryType">Beneficiary Type</Label>
@@ -619,15 +636,30 @@ export default function OrganizationPortal() {
               <p className="text-sm text-muted-foreground">After verification is complete, set a new PIN:</p>
               <div className="space-y-2">
                 <Label htmlFor="newPinValue">New PIN (6 digits)</Label>
-                <Input
-                  id="newPinValue"
-                  type="password"
-                  maxLength={6}
-                  placeholder="Enter new PIN"
-                  value={newPinValue}
-                  onChange={(e) => setNewPinValue(e.target.value)}
-                  data-testid="input-new-pin"
-                />
+                <div className="relative">
+                  <Input
+                    id="newPinValue"
+                    type={showNewPinValue ? "text" : "password"}
+                    maxLength={6}
+                    placeholder="Enter new PIN"
+                    value={newPinValue}
+                    onChange={(e) => setNewPinValue(e.target.value)}
+                    className="pr-9"
+                    data-testid="input-new-pin"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPinValue(!showNewPinValue)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-new-pin"
+                  >
+                    {showNewPinValue ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <Button
                 onClick={handleResetPin}

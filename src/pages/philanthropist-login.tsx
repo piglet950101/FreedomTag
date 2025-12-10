@@ -33,8 +33,11 @@ export default function PhilanthropistLogin() {
             });
             
             if (!response.ok) {
-                const error = await response.json();
-                toast({ title: "Login failed", description: error.error || "Invalid email or password", variant: "destructive" });
+                toast({ 
+                  title: "Login Failed", 
+                  description: "Incorrect email or password.", 
+                  variant: "destructive" 
+                });
                 setIsLoggingIn(false);
                 return;
             }

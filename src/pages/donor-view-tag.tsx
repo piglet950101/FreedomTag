@@ -16,10 +16,10 @@ interface TagInfo {
   balanceZAR: number;
   beneficiaryName?: string;
   beneficiaryType?: string;
-  createdAt?: string;
   organization?: {
     name: string;
     smartContractAddress?: string;
+    blockchainNetwork?: string;
   };
 }
 
@@ -62,22 +62,34 @@ export default function DonorViewTag() {
 
   const { data: donationsData } = useQuery<{ donations: Donation[] }>({
     queryKey: [`/api/tag/${tagCode}/donations`],
+    retry: false, // Don't retry on error
+    // Return empty array on error to prevent page breakage
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/tag/${tagCode}/donations`);
+        if (!res.ok) {
+          return { donations: [] };
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Failed to fetch donations:', error);
+        return { donations: [] };
+      }
+    },
   });
 
   const handleBankPayment = async (amountZAR: number) => {
     setIsPayingBank(true);
     try {
-      const response = await fetch('/api/donate/public', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tagCode, amountZAR }),
+      // Redirect to bank payment page with Stripe Checkout
+      const params = new URLSearchParams({
+        tagCode: tagCode || '',
+        amountZAR: String(Math.round(amountZAR)),
+        source: 'public',
       });
-      const data = await response.json();
-      if (data.bankSimUrl) {
-        window.location.href = data.bankSimUrl;
-      }
+      window.location.href = `/bank/pay?${params.toString()}`;
     } catch (error) {
-      console.error('Bank payment failed:', error);
+      console.error('Bank payment redirect failed:', error);
       setIsPayingBank(false);
     }
   };
@@ -136,10 +148,13 @@ export default function DonorViewTag() {
                     </div>
                     <div>
                       <CardTitle className="text-2xl">
-                        {tagInfo?.beneficiaryName || 'Beneficiary'}
+                        {tagInfo?.organization?.name || tagInfo?.beneficiaryName || 'Beneficiary'}
                       </CardTitle>
                       <CardDescription className="text-base">
                         Freedom Tag: <span className="font-mono font-semibold">{tagCode}</span>
+                        {tagInfo?.beneficiaryType && (
+                          <span className="ml-2 text-xs">({tagInfo.beneficiaryType})</span>
+                        )}
                       </CardDescription>
                     </div>
                   </div>
@@ -153,12 +168,14 @@ export default function DonorViewTag() {
                 <div>
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     <Heart className="w-4 h-4 text-primary" />
-                    Their Story
+                    {tagInfo?.organization ? 'About This Organization' : 'Their Story'}
                   </h3>
                   <p className="text-muted-foreground">
-                    {tagInfo?.beneficiaryName || 'This person'} is part of the Freedom Tag program, 
-                    empowering financial inclusion and dignity through blockchain technology.
-                    Your donation goes 100% directly to them.
+                    {tagInfo?.organization 
+                      ? `${tagInfo.organization.name} is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to those in need.`
+                      : tagInfo?.beneficiaryName
+                      ? `${tagInfo.beneficiaryName} is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to them.`
+                      : 'This person is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to them.'}
                   </p>
                 </div>
 
@@ -188,9 +205,7 @@ export default function DonorViewTag() {
                       Member Since
                     </div>
                     <p className="font-semibold">
-                      {tagInfo?.createdAt 
-                        ? new Date(tagInfo.createdAt).toLocaleDateString() 
-                        : 'Recently'}
+                      Recently
                     </p>
                   </div>
                   <div>
@@ -199,8 +214,13 @@ export default function DonorViewTag() {
                       Total Received
                     </div>
                     <p className="font-semibold">
-                      {donationsData?.donations?.length || 0} donations
+                      {donationsData?.donations?.length || 0} {donationsData?.donations?.length === 1 ? 'donation' : 'donations'}
                     </p>
+                    {donationsData?.donations && donationsData.donations.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        R {((donationsData.donations.reduce((sum: number, d: Donation) => sum + d.amount, 0)) / 100).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -241,6 +261,12 @@ export default function DonorViewTag() {
                 )}
               </CardContent>
             </Card>
+
+            {/* QR Code */}
+            <DonationQRCode
+              tagCode={tagCode}
+              size={140}
+            />
           </div>
 
           {/* Right Column - Donation Form */}
@@ -317,13 +343,6 @@ export default function DonorViewTag() {
                 </p>
               </CardContent>
             </Card>
-
-            {/* QR Code */}
-            <DonationQRCode
-              url={`${window.location.origin}/donor/view/${tagCode}`}
-              tagCode={tagCode}
-              size={140}
-            />
           </div>
         </div>
       </div>

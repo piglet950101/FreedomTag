@@ -1,158 +1,1049 @@
-import { useEffect, useState } from "react";
-import { useLocation, Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { UserCircle, Send, LogOut, Wallet } from "lucide-react";
-import DonationQRCode from "@/components/DonationQRCode";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Heart, Store, Users, Building, LogOut, Wallet, Gift, ShoppingBag, AlertCircle, Plus, Copy, Key, Eye, EyeOff, ArrowLeft, Bitcoin } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import DonationQRCode from "@/components/DonationQRCode";
 
-interface BeneficiaryData {
-  tagCode: string;
-  walletId: string;
-  balanceZAR: number;
+interface UserSession {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    blockkoinAccountId?: string;
+    blockkoinKycStatus?: string;
+  };
+  roles: string[];
+  beneficiaryTag?: {
+    tagCode: string;
+    beneficiaryName: string;
+    balanceZAR: number;
+  };
 }
 
-interface TagInfo {
-  tagCode: string;
-  walletId: string;
-  balanceZAR: number;
+interface CryptoBalances {
+  BTC: number;
+  ETH: number;
+  USDT: number;
 }
 
 export default function BeneficiaryDashboard() {
   const [, setLocation] = useLocation();
-  const [beneficiaryData, setBeneficiaryData] = useState<BeneficiaryData | null>(null);
+  const { toast } = useToast();
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [blockkoinAccountInput, setBlockkoinAccountInput] = useState("");
+  const [isLinkingBlockkoin, setIsLinkingBlockkoin] = useState(false);
 
-  // Check for session data
-  useEffect(() => {
-    const sessionData = sessionStorage.getItem('beneficiary');
-    console.log("sessionData", sessionData);
-    
-    if (!sessionData) {
-      setLocation('/kiosk/beneficiary');
-      return;
-    }
-    setBeneficiaryData(JSON.parse(sessionData));
-  }, [setLocation]);
+  // Check if we're on beneficiary dashboard route
+  const [location] = useLocation();
+  const isBeneficiaryDashboard = location === '/beneficiary/dashboard';
 
-  // Fetch current balance
-  const { data: tagInfo, refetch } = useQuery<TagInfo>({
-    queryKey: [`/api/tag/${beneficiaryData?.tagCode}`],
-    enabled: !!beneficiaryData?.tagCode,
+  // Get JWT token
+  const getAuthToken = () => localStorage.getItem('authToken');
+
+  // Try beneficiary session first if on beneficiary dashboard, otherwise try auth/me
+  const { data: beneficiarySession, isLoading: isLoadingBeneficiary, error: beneficiaryError } = useQuery<{
+    tagCode: string | null;
+    beneficiaryName: string;
+    walletId: string | null;
+    balanceZAR: number;
+    blockkoinAccountId?: string;
+    blockkoinKycStatus?: string;
+    hasTag?: boolean;
+  } | null>({
+    queryKey: ["/api/beneficiary/me"],
+    retry: false,
+    enabled: isBeneficiaryDashboard, // Always try if on beneficiary dashboard
+    queryFn: async () => {
+      const token = getAuthToken();
+      console.log('[BeneficiaryDashboard] Fetching /api/beneficiary/me with token:', token ? 'present' : 'missing');
+      
+      const res = await fetch('/api/beneficiary/me', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      
+      console.log('[BeneficiaryDashboard] /api/beneficiary/me response status:', res.status);
+      
+      if (res.status === 401) {
+        console.log('[BeneficiaryDashboard] 401 - Not authenticated');
+        return null;
+      }
+      
+      if (!res.ok) {
+        // For 404, return a response indicating no tag (user exists but no tag)
+        if (res.status === 404) {
+          const errorData = await res.json().catch(() => ({}));
+          console.log('[BeneficiaryDashboard] 404 error data:', errorData);
+          // If it's a "No beneficiary tag found" error, return a response with hasTag: false
+          if (errorData.error?.includes('No beneficiary tag found') || errorData.error?.includes('User not found')) {
+            return {
+              tagCode: null,
+              beneficiaryName: '',
+              walletId: null,
+              balanceZAR: 0,
+              hasTag: false,
+            };
+          }
+        }
+        const text = await res.text();
+        console.error('[BeneficiaryDashboard] Error response:', text);
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      
+      const data = await res.json();
+      console.log('[BeneficiaryDashboard] /api/beneficiary/me response data:', data);
+      
+      // Ensure hasTag is set and tagCode is properly handled
+      const result = {
+        tagCode: data.tagCode || null,
+        beneficiaryName: data.beneficiaryName || '',
+        walletId: data.walletId || null,
+        balanceZAR: data.balanceZAR || 0,
+        blockkoinAccountId: data.blockkoinAccountId,
+        blockkoinKycStatus: data.blockkoinKycStatus,
+        hasTag: data.hasTag !== undefined ? data.hasTag : !!data.tagCode,
+      };
+      
+      console.log('[BeneficiaryDashboard] Processed beneficiary session:', result);
+      return result;
+    },
   });
 
-  // Update session storage when balance changes
-  useEffect(() => {
-    if (tagInfo && beneficiaryData) {
-      const updatedData = {
-        ...beneficiaryData,
-        balanceZAR: tagInfo.balanceZAR,
-      };
-      sessionStorage.setItem('beneficiary', JSON.stringify(updatedData));
-      setBeneficiaryData(updatedData);
-    }
-  }, [tagInfo]);
+  const { data: session, isLoading, error: authError } = useQuery<UserSession | null>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+    enabled: !isBeneficiaryDashboard, // Only check auth/me if not on beneficiary dashboard
+    queryFn: async () => {
+      const token = getAuthToken();
+      const res = await fetch('/api/auth/me', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        // Return null for 401, don't throw - we'll handle redirect separately
+        return null;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+      return res.json();
+    },
+  });
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('beneficiary');
-    setLocation('/kiosk');
+  const hasBlockkoinAccount = (() => {
+    const v = String(session?.user.blockkoinAccountId || "").trim().toLowerCase();
+    return v.length > 0 && v !== "none" && v !== "null" && v !== "undefined" && v !== "0";
+  })();
+
+  const { data: cryptoBalances } = useQuery<CryptoBalances>({
+    queryKey: ["/api/crypto/balances"],
+    enabled: hasBlockkoinAccount,
+    retry: false,
+  });
+
+  const linkBlockkoinAccount = async () => {
+    const id = blockkoinAccountInput.trim();
+    if (!id || id.length < 3) {
+      toast({ title: 'Invalid ID', description: 'Enter a valid Blockkoin account ID', variant: 'destructive' });
+      return;
+    }
+    setIsLinkingBlockkoin(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch('/api/blockkoin/link', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ accountId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to link' }));
+        throw new Error(err.error || 'Failed to link');
+      }
+      const data = await res.json();
+      toast({ title: 'Wallet linked', description: `Account ${data.blockkoinAccountId} connected` });
+      setBlockkoinAccountInput('');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    } catch (e: any) {
+      toast({ title: 'Linking failed', description: String(e.message || e), variant: 'destructive' });
+    } finally {
+      setIsLinkingBlockkoin(false);
+    }
   };
 
-  if (!beneficiaryData) {
-    return null;
+  const handleLogout = async () => {
+    try {
+      // Clear JWT token
+      localStorage.removeItem('authToken');
+      
+      const token = getAuthToken();
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      setLocation("/");
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBeneficiaryLogout = async () => {
+    try {
+      // Clear JWT token from localStorage
+      localStorage.removeItem('authToken');
+      
+      // Call logout endpoint
+      const token = getAuthToken();
+      await fetch("/api/beneficiary/logout", {
+        method: "POST",
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      
+      // Redirect to login
+      setLocation("/beneficiary/login");
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, clear token and redirect
+      localStorage.removeItem('authToken');
+      queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      toast({
+        title: "Logged out",
+        description: "You have been logged out.",
+      });
+      setLocation("/beneficiary/login");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const token = getAuthToken();
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to change password");
+      }
+
+      toast({
+        title: "Success",
+        description: "Password changed successfully",
+      });
+
+      setIsPasswordDialogOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Handle authentication - check both regular session and beneficiary session
+  const isAuthenticated = session || beneficiarySession;
+  const isLoadingAuth = isLoading || (isBeneficiaryDashboard ? isLoadingBeneficiary : false);
+
+  // Handle authentication errors - show loading while checking
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loading-spinner" />
+      </div>
+    );
   }
 
-  const balance = tagInfo?.balanceZAR ?? beneficiaryData.balanceZAR;
+  // Only redirect if query has completed and there's no session
+  // Don't redirect immediately - wait for query to finish
+  if (!isAuthenticated && !isLoadingAuth) {
+    // Check if it's an auth error or just no session
+    if (authError) {
+      const errorMessage = authError instanceof Error ? authError.message : String(authError);
+      if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to access your dashboard.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          setLocation('/beneficiary/login');
+        }, 100);
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Redirecting to login...</p>
+            </div>
+          </div>
+        );
+      }
+    }
+    
+    // If no session and no error, redirect to login (not home)
+    toast({
+      title: "Authentication Required",
+      description: "Please log in to access your dashboard.",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      setLocation('/beneficiary/login');
+    }, 100);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-primary text-primary-foreground py-8 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <UserCircle className="w-16 h-16" />
-              <div>
-                <h1 className="text-3xl font-bold">{beneficiaryData.tagCode}</h1>
-                <p className="text-lg text-primary-foreground/80">Beneficiary Account</p>
-              </div>
+  // If beneficiary session exists, show beneficiary-specific dashboard
+  if (beneficiarySession && isBeneficiaryDashboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="mb-4">
+            <Button variant="ghost" onClick={() => setLocation('/')} data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+          </div>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-dashboard-title">
+                <Heart className="w-8 h-8 text-primary" />
+                Beneficiary Dashboard
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {beneficiarySession.tagCode && beneficiarySession.tagCode.trim() 
+                  ? `Tag: ${beneficiarySession.tagCode}` 
+                  : 'No tag assigned yet'}
+              </p>
             </div>
             <Button
-              variant="ghost"
-              size="lg"
-              onClick={handleLogout}
-              className="text-primary-foreground hover:bg-primary-foreground/20 text-xl"
+              variant="outline"
+              onClick={handleBeneficiaryLogout}
               data-testid="button-logout"
             >
-              <LogOut className="w-6 h-6 mr-2" />
+              <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
           </div>
+          <main>
+            {!beneficiarySession.tagCode || !beneficiarySession.tagCode.trim() ? (
+              // No tag - show create tag prompt
+              <Card className="mb-8 border-yellow-500/20 bg-yellow-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-yellow-900">
+                    <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    No Freedom Tag Found
+                  </CardTitle>
+                  <CardDescription className="text-yellow-800">
+                    You don't have a Freedom Tag yet. Create one to receive donations and access services.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => setLocation('/quick-tag-setup')}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                    data-testid="button-create-tag"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Tag
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              // Has tag - show tag info
+              <Card className="mb-8 border-green-500/20 bg-green-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-900">
+                    <Heart className="h-5 w-5 text-green-600" />
+                    My Freedom Tag
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Tag Code</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-2xl font-bold text-foreground" data-testid="text-tag-code">
+                          {beneficiarySession.tagCode}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            if (beneficiarySession.tagCode) {
+                              navigator.clipboard.writeText(beneficiarySession.tagCode);
+                              toast({
+                                title: "Copied!",
+                                description: `Tag code ${beneficiarySession.tagCode} copied to clipboard`,
+                              });
+                            }
+                          }}
+                          title="Copy tag code"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Name</p>
+                      <p className="text-lg font-medium text-foreground">
+                        {beneficiarySession.beneficiaryName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Balance</p>
+                      <p className="text-lg font-medium text-foreground">
+                        R {(beneficiarySession.balanceZAR / 100).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Balance Card */}
-          <Card className="bg-primary-foreground/10 border-primary-foreground/20">
-            <CardContent className="pt-8 pb-8">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <Wallet className="w-10 h-10" />
-                  <p className="text-2xl text-primary-foreground/90">Available Balance</p>
+          {/* Blockkoin Wallet Status */}
+          {(() => {
+            const hasBlockkoinAccount = (() => {
+              const v = String(beneficiarySession.blockkoinAccountId || "").trim().toLowerCase();
+              return v.length > 0 && v !== "none" && v !== "null" && v !== "undefined" && v !== "0";
+            })();
+
+            return hasBlockkoinAccount ? (
+              <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-900">
+                    <Bitcoin className="h-5 w-5 text-orange-600" />
+                    Blockkoin Wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Blockkoin Account: {beneficiarySession.blockkoinAccountId}
+                    {beneficiarySession.blockkoinKycStatus && (
+                      <Badge variant="outline" className="ml-2">
+                        KYC: {beneficiarySession.blockkoinKycStatus}
+                      </Badge>
+                    )}
+                    {beneficiarySession.blockkoinKycStatus === 'none' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="ml-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                        onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                        data-testid="button-kyc-verify"
+                      >
+                        Verify KYC
+                      </Button>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-900">
+                    <Bitcoin className="h-5 w-5 text-orange-600" />
+                    Connect Blockkoin Wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Create or connect your Blockkoin wallet to view balances and send/receive crypto.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => window.open('https://bkr.blockkoin.io/register', '_blank')}
+                      data-testid="button-blockkoin-onboard"
+                    >
+                      Get Started on Blockkoin
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                    >
+                      Open Blockkoin
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* QR Code - Only show if tag exists */}
+          {beneficiarySession.tagCode && beneficiarySession.tagCode.trim() && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Donation QR Code</CardTitle>
+                <CardDescription>Share this QR code to receive donations</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center py-4">
+                <DonationQRCode
+                  tagCode={beneficiarySession.tagCode}
+                  size={120}
+                />
+              </CardContent>
+            </Card>
+          )}
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  const roleIcons: Record<string, any> = {
+    BENEFICIARY: Heart,
+    MERCHANT: Store,
+    PHILANTHROPIST: Gift,
+    ORGANIZATION: Building,
+    ADMIN: Users,
+  };
+
+  const roleColors: Record<string, string> = {
+    BENEFICIARY: "bg-green-500/10 text-green-700 border-green-500/20",
+    MERCHANT: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+    PHILANTHROPIST: "bg-purple-500/10 text-purple-700 border-purple-500/20",
+    ORGANIZATION: "bg-orange-500/10 text-orange-700 border-orange-500/20",
+    ADMIN: "bg-red-500/10 text-red-700 border-red-500/20",
+  };
+
+  const roleActions: Record<string, { title: string; description: string; icon: any; action: string }[]> = {
+    BENEFICIARY: [
+      {
+        title: "View My Tags",
+        description: "Access your Freedom Tags and check balances",
+        icon: Wallet,
+        action: "/beneficiary",
+      },
+    ],
+    MERCHANT: [
+      {
+        title: "Accept Payments",
+        description: "Redeem Freedom Tag payments at your outlet",
+        icon: ShoppingBag,
+        action: "/merchant",
+      },
+    ],
+    PHILANTHROPIST: [
+      {
+        title: "Give to Tags",
+        description: "Support beneficiaries through Freedom Tags",
+        icon: Gift,
+        action: "/philanthropist/give",
+      },
+      {
+        title: "Spend at Merchants",
+        description: "Use your balance at participating outlets",
+        icon: Store,
+        action: "/philanthropist/spend",
+      },
+    ],
+    ORGANIZATION: [
+      {
+        title: "Manage Organization",
+        description: "Issue tags and manage your organization",
+        icon: Building,
+        action: "/organization",
+      },
+    ],
+    ADMIN: [
+      {
+        title: "Admin Portal",
+        description: "Manage system settings and users",
+        icon: Users,
+        action: "/admin",
+      },
+    ],
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => setLocation('/')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground" data-testid="heading-welcome">
+                Welcome, {session.user.fullName}
+              </h1>
+              <p className="text-sm text-muted-foreground" data-testid="text-email">
+                {session.user.email}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Key className="h-4 w-4 mr-2" />
+                    Change Password
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Change Password</DialogTitle>
+                    <DialogDescription>
+                      Enter your current password and choose a new password
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="current-password"
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="new-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                        />
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsPasswordDialogOpen(false);
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleChangePassword}
+                      disabled={isChangingPassword}
+                    >
+                      {isChangingPassword ? "Changing..." : "Change Password"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8  max-w-5xl">
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Your Roles</h2>
+          <div className="flex flex-wrap gap-3" data-testid="container-roles">
+            {session.roles.map((role) => {
+              const roleStr = String(role);
+              const Icon = roleIcons[roleStr] || Users;
+              return (
+                <Badge
+                  key={roleStr}
+                  variant="outline"
+                  className={`px-4 py-2 ${roleColors[roleStr] || ""}`}
+                  data-testid={`badge-role-${roleStr.toLowerCase()}`}
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  {roleStr.charAt(0) + roleStr.slice(1).toLowerCase()}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+
+        {session.roles.includes('BENEFICIARY') && !session.beneficiaryTag && (
+          <Alert className="mb-8 border-yellow-500/50 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertTitle className="text-yellow-900">No Freedom Tag Found</AlertTitle>
+            <AlertDescription className="text-yellow-800">
+              You don't have a Freedom Tag yet. Create one to receive donations and access services.
+              <div className="mt-3">
+                <Button
+                  onClick={() => setLocation('/quick-tag-setup')}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  data-testid="button-setup-tag"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Set Up Freedom Tag
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {Array.isArray(session.roles) && session.roles.indexOf('BENEFICIARY') !== -1 && session.beneficiaryTag && (
+          <Card className="mb-8 border-green-500/20 bg-green-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-900">
+                <Heart className="h-5 w-5 text-green-600" />
+                My Freedom Tag
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Tag Code</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground" data-testid="text-tag-code">
+                      {session.beneficiaryTag.tagCode}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(session.beneficiaryTag!.tagCode);
+                        toast({
+                          title: "Copied!",
+                          description: `Tag code ${session.beneficiaryTag!.tagCode} copied to clipboard`,
+                        });
+                      }}
+                      title="Copy tag code"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-6xl font-bold" data-testid="text-balance">
-                  R {(balance / 100).toFixed(2)}
-                </p>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Name</p>
+                  <p className="text-lg font-medium text-foreground">
+                    {session.beneficiaryTag.beneficiaryName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Balance</p>
+                  <p className="text-lg font-medium text-foreground">
+                    R {(session.beneficiaryTag.balanceZAR / 100).toFixed(2)}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        )}
 
-      {/* QR Code */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <Card className="hover-elevate">
-          <CardHeader>
-            <CardTitle className="text-2xl">Your Tag QR</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center py-6">
-            <DonationQRCode 
-              url={`${window.location.origin}/tag/${beneficiaryData.tagCode}`}
-              tagCode={beneficiaryData.tagCode} 
-              size={320} 
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Actions */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold mb-8">What would you like to do?</h2>
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          <Link href="/kiosk/beneficiary/transfer">
-            <Card className="cursor-pointer hover-elevate active-elevate-2 transition-all h-full" data-testid="card-transfer">
-              <CardHeader>
-                <div className="w-20 h-20 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Send className="w-10 h-10 text-primary" />
-                </div>
-                <CardTitle className="text-3xl mb-3">Send Money</CardTitle>
-                <p className="text-xl text-muted-foreground">
-                  Transfer funds to another Freedom Tag holder
-                </p>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Card className="opacity-50" data-testid="card-spend">
+        {hasBlockkoinAccount && cryptoBalances && (
+          <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
             <CardHeader>
-              <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center mb-4">
-                <Wallet className="w-10 h-10 text-muted-foreground" />
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Bitcoin className="h-5 w-5 text-orange-600" />
+                Blockkoin Wallet
+              </CardTitle>
+              <CardDescription>
+                Blockkoin Account: {session.user.blockkoinAccountId}
+                {session.user.blockkoinKycStatus && (
+                  <Badge variant="outline" className="ml-2">
+                    KYC: {session.user.blockkoinKycStatus}
+                  </Badge>
+                )}
+                {session.user.blockkoinKycStatus === 'none' && (
+                  <Button
+                    variant="default"
+                    className="ml-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                    data-testid="button-kyc-verify"
+                  >
+                    Verify KYC
+                  </Button>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="p-4 rounded-lg bg-orange-100/50 border border-orange-200">
+                  <p className="text-sm text-muted-foreground mb-1">Bitcoin (BTC)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.BTC.toFixed(8)} BTC
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-purple-100/50 border border-purple-200">
+                  <p className="text-sm text-muted-foreground mb-1">Ethereum (ETH)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.ETH.toFixed(8)} ETH
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-green-100/50 border border-green-200">
+                  <p className="text-sm text-muted-foreground mb-1">Tether (USDT)</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {cryptoBalances.USDT.toFixed(2)} USDT
+                  </p>
+                </div>
               </div>
-              <CardTitle className="text-3xl mb-3">Spend at Merchant</CardTitle>
-              <p className="text-xl text-muted-foreground">
-                Coming soon - use your balance at partner merchants
-              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!hasBlockkoinAccount && (
+          <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Bitcoin className="h-5 w-5 text-orange-600" />
+                Connect Blockkoin Wallet
+              </CardTitle>
+              <CardDescription>
+                Create or connect your Blockkoin wallet to view balances and send/receive crypto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => window.open('https://bkr.blockkoin.io/register', '_blank')}
+                  data-testid="button-blockkoin-onboard"
+                >
+                  Get Started on Blockkoin
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open('https://bkr.blockkoin.io/', '_blank')}
+                >
+                  Open Blockkoin
+                </Button>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
+                <Input
+                  placeholder="Paste Blockkoin account ID"
+                  value={blockkoinAccountInput}
+                  onChange={(e) => setBlockkoinAccountInput(e.target.value)}
+                  data-testid="input-blockkoin-account"
+                />
+                <Button
+                  onClick={linkBlockkoinAccount}
+                  disabled={isLinkingBlockkoin || !blockkoinAccountInput.trim()}
+                  data-testid="button-link-blockkoin"
+                >
+                  {isLinkingBlockkoin ? 'Linking…' : 'Link Wallet'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-foreground">Quick Actions</h2>
+
+          {session.roles.map((role) => {
+            const roleStr = String(role);
+            const actions = roleActions[roleStr] || [];
+            if (actions.length === 0) return null;
+
+            return (
+              <div key={roleStr} className="space-y-3">
+                <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
+                  {(() => {
+                    const Icon = roleIcons[roleStr];
+                    return Icon ? <Icon className="h-5 w-5" /> : null;
+                  })()}
+                  {roleStr.charAt(0) + roleStr.slice(1).toLowerCase()} Actions
+                </h3>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {actions.map((action, index) => {
+                    // Disable "View My Tags" for beneficiaries without tags
+                    const isDisabled = roleStr === 'BENEFICIARY' &&
+                      action.action === '/beneficiary' &&
+                      !session.beneficiaryTag;
+
+                    return (
+                      <Card
+                        key={index}
+                        className={`transition-all ${isDisabled
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover-elevate active-elevate-2 cursor-pointer'
+                          }`}
+                        onClick={() => !isDisabled && setLocation(action.action)}
+                        data-testid={`card-action-${action.action.replace(/\//g, '-')}`}
+                      >
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <action.icon className="h-5 w-5 text-primary" />
+                            {action.title}
+                          </CardTitle>
+                          <CardDescription>
+                            {isDisabled
+                              ? 'Set up a Freedom Tag first to access this feature'
+                              : action.description
+                            }
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {Array.isArray(session.roles) && session.roles.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Roles Assigned</CardTitle>
+              <CardDescription>
+                You don't have any roles assigned yet. Contact an administrator to get started.
+              </CardDescription>
             </CardHeader>
           </Card>
-        </div>
-      </div>
+        )}
+
+        {Array.isArray(session.roles) && session.roles.indexOf('BENEFICIARY') !== -1 && session.beneficiaryTag && (
+          <div className="mb-6 mt-8" >
+            <DonationQRCode
+              url={`${window.location.origin}/tag/${session.beneficiaryTag.tagCode}`}
+              tagCode={session.beneficiaryTag.tagCode}
+              size={160}
+            />
+          </div>
+        )}
+      </main>
     </div>
   );
 }

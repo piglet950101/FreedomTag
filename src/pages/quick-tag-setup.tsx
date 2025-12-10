@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, useEffect, FormEvent } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { ArrowLeft, UserPlus, QrCode, Check, Save, AlertCircle } from "lucide-react";
+import { ArrowLeft, UserPlus, QrCode, Check, Save, AlertCircle, Eye, EyeOff } from "lucide-react";
 import QRCodeReact from "react-qr-code";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViralReferralPopup } from "@/components/ViralReferralPopup";
@@ -37,27 +37,16 @@ export default function QuickTagSetup() {
   const [beneficiaryPhone, setBeneficiaryPhone] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [tagCreated, setTagCreated] = useState<QuickTagResponse | null>(null);
   const [showDraftAlert, setShowDraftAlert] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<number | null>(null);
   const [showViralPopup, setShowViralPopup] = useState(false);
 
-  // Fetch current user session if logged in
-  const { data: session } = useQuery({
-    queryKey: ["/api/auth/me"],
-    queryFn: async () => {
-      const response = await fetch("/api/auth/me", {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        return null; // User not logged in
-      }
-      return response.json();
-    },
-    retry: false,
-  });
+  // Don't fetch session automatically - only check when creating tag (in handleSubmit)
 
   // Check for existing draft on mount
   useEffect(() => {
@@ -194,7 +183,7 @@ export default function QuickTagSetup() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!beneficiaryName.trim()) {
@@ -224,12 +213,67 @@ export default function QuickTagSetup() {
       return;
     }
 
-    createTagMutation.mutate({
-      beneficiaryName,
-      beneficiaryPhone: beneficiaryPhone.trim() || undefined,
-      pin,
-      userId: session?.user?.id, // Include userId if user is logged in
-    });
+    // Check if user is logged in (check token first to avoid unnecessary API call)
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      // User not logged in - show error and require login without calling API
+      toast({ 
+        title: "Login Required", 
+        description: "Please log in to create a Freedom Tag.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // User has token - verify login and check for existing tag
+    try {
+      const meResponse = await fetch("/api/auth/me", {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: "include",
+      });
+      
+      if (meResponse.ok) {
+        const meData = await meResponse.json();
+        
+        // Check if user already has a beneficiary tag
+        if (meData.beneficiaryTag && meData.beneficiaryTag.tagCode) {
+          toast({ 
+            title: "Tag Already Exists", 
+            description: `You already have a Freedom Tag: ${meData.beneficiaryTag.tagCode}. You can only have one tag per account.`,
+            variant: "destructive" 
+          });
+          return;
+        }
+        
+        // User is logged in but doesn't have a tag - proceed with creation
+        createTagMutation.mutate({
+          beneficiaryName,
+          beneficiaryPhone: beneficiaryPhone.trim() || undefined,
+          pin,
+          userId: meData.user?.id, // Use fresh data from /api/auth/me
+        });
+      } else {
+        // Token exists but invalid - show error and require login
+        toast({ 
+          title: "Session Expired", 
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Clear invalid token
+        localStorage.removeItem('authToken');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking user session:', error);
+      // If check fails, show error and require login
+      toast({ 
+        title: "Authentication Error", 
+        description: "Unable to verify your login status. Please log in and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
   };
 
   if (tagCreated) {
@@ -422,17 +466,32 @@ export default function QuickTagSetup() {
                 <p className="text-sm font-medium text-foreground">Set Access PIN</p>
                 <div className="space-y-2">
                   <Label htmlFor="pin">4-Digit PIN *</Label>
-                  <Input
-                    id="pin"
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="1234"
-                    required
-                    data-testid="input-pin"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="pin"
+                      type={showPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="1234"
+                      className="pr-9"
+                      required
+                      data-testid="input-pin"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-toggle-pin"
+                    >
+                      {showPin ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     The recipient needs this PIN to access their wallet
                   </p>
@@ -440,17 +499,32 @@ export default function QuickTagSetup() {
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm-pin">Confirm PIN *</Label>
-                  <Input
-                    id="confirm-pin"
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={confirmPin}
-                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="1234"
-                    required
-                    data-testid="input-confirm-pin"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirm-pin"
+                      type={showConfirmPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={confirmPin}
+                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="1234"
+                      className="pr-9"
+                      required
+                      data-testid="input-confirm-pin"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPin(!showConfirmPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-toggle-confirm-pin"
+                    >
+                      {showConfirmPin ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
