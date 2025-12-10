@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -33,11 +34,32 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { LogOut, LayoutDashboard, UserCircle } from "lucide-react";
 
+// Helper function to decode JWT token payload (without verification)
+function decodeJWTPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decoded);
+  } catch (error) {
+    return null;
+  }
+}
+
 export default function Header() {
   // Check if user is logged in for mobile menu
   const getAuthToken = () => localStorage.getItem('authToken');
   const hasToken = !!getAuthToken();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Decode token to determine type
+  const token = getAuthToken();
+  const tokenPayload = token ? decodeJWTPayload(token) : null;
+  const tokenType = tokenPayload?.type; // 'philanthropist', 'user', or undefined
 
+  // Only fetch session data when mobile menu is opened or when there's a token and LoginSelector might have cached it
+  // React Query will use cached data from LoginSelector if available, avoiding duplicate requests
   const { data: session } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
@@ -51,8 +73,9 @@ export default function Header() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: hasToken,
+    enabled: mobileMenuOpen && hasToken && (tokenType === 'user' || !tokenType), // Only if user type or unknown
     retry: false,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
   const { data: beneficiarySession } = useQuery({
@@ -68,15 +91,37 @@ export default function Header() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: hasToken,
+    enabled: mobileMenuOpen && hasToken && tokenType === 'beneficiary', // Only if beneficiary type
     retry: false,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
-  const isLoggedIn = hasToken && (!!session || !!beneficiarySession);
+  const { data: philanthropistSession } = useQuery({
+    queryKey: ["/api/philanthropist/me"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      const res = await fetch('/api/philanthropist/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: mobileMenuOpen && hasToken && tokenType === 'philanthropist', // Only if philanthropist type
+    retry: false,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  });
+
+  // For desktop, rely on LoginSelector's cached data (it will fetch when needed)
+  // For mobile, use the queries above which only run when menu is opened
+  const isLoggedIn = hasToken && (!!session || !!beneficiarySession || !!philanthropistSession);
 
   const getMyPageLink = () => {
-    if (!session && !beneficiarySession) return '/';
+    if (!session && !beneficiarySession && !philanthropistSession) return '/';
     if (beneficiarySession) return '/beneficiary/dashboard';
+    if (philanthropistSession) return '/philanthropist/dashboard';
     if (session) {
       const roles = session.roles || [];
       if (roles.includes('ADMIN')) return '/admin';
@@ -91,6 +136,8 @@ export default function Header() {
 
   const getDisplayName = () => {
     if (beneficiarySession?.beneficiaryName) return beneficiarySession.beneficiaryName;
+    if (philanthropistSession?.displayName) return philanthropistSession.displayName;
+    if (philanthropistSession?.email) return philanthropistSession.email;
     if (session?.user?.fullName) return session.user.fullName;
     if (session?.user?.email) return session.user.email;
     return 'User';
@@ -111,8 +158,10 @@ export default function Header() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/philanthropist/me"] });
       queryClient.removeQueries({ queryKey: ["/api/auth/me"] });
       queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/philanthropist/me"] });
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
@@ -366,7 +415,7 @@ export default function Header() {
 
           {/* Mobile Menu */}
           <div className="lg:hidden">
-            <Sheet>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
                   <Menu className="w-5 h-5" />
