@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, LogIn, Tag, Users, Building2, User, LogOut } from 'lucide-react';
+import { ChevronDown, LogIn, Tag, Users, Building2, User, LogOut, Shield } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 
 export default function LoginSelector() {
@@ -63,6 +63,9 @@ export default function LoginSelector() {
     }
     if (session) {
       const roles = session.roles || [];
+      if (roles.includes('ADMIN')) {
+        return '/admin';
+      }
       if (roles.includes('PHILANTHROPIST')) {
         return '/philanthropist/dashboard';
       }
@@ -230,6 +233,23 @@ export default function LoginSelector() {
                     <p className="text-sm text-muted-foreground">Go to your dashboard</p>
                   </div>
                 </Link>
+
+                {session && session.roles && session.roles.includes('ADMIN') && (
+                  <Link href="/admin/users">
+                    <div
+                      role="menuitem"
+                      className="block select-none space-y-1 rounded-md p-3 hover-elevate cursor-pointer"
+                      data-testid="menu-user-management"
+                      onClick={() => setOpen(false)}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Shield className="w-4 h-4" />
+                        User Management
+                      </div>
+                      <p className="text-sm text-muted-foreground">Manage users and roles</p>
+                    </div>
+                  </Link>
+                )}
 
                 <div
                   role="menuitem"

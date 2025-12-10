@@ -29,8 +29,98 @@ import {
 } from "lucide-react";
 import { goBackOrHome } from "@/lib/utils";
 import LoginSelector from '@/components/LoginSelector';
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { LogOut, LayoutDashboard, UserCircle } from "lucide-react";
 
 export default function Header() {
+  // Check if user is logged in for mobile menu
+  const getAuthToken = () => localStorage.getItem('authToken');
+  const hasToken = !!getAuthToken();
+
+  const { data: session } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: hasToken,
+    retry: false,
+  });
+
+  const { data: beneficiarySession } = useQuery({
+    queryKey: ["/api/beneficiary/me"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      const res = await fetch('/api/beneficiary/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: hasToken,
+    retry: false,
+  });
+
+  const isLoggedIn = hasToken && (!!session || !!beneficiarySession);
+
+  const getMyPageLink = () => {
+    if (!session && !beneficiarySession) return '/';
+    if (beneficiarySession) return '/beneficiary/dashboard';
+    if (session) {
+      const roles = session.roles || [];
+      if (roles.includes('ADMIN')) return '/admin';
+      if (roles.includes('PHILANTHROPIST')) return '/philanthropist/dashboard';
+      if (roles.includes('ORGANIZATION') && session.organization?.tagCode) {
+        return `/charity/credibility/${session.organization.tagCode}`;
+      }
+      if (roles.includes('BENEFICIARY')) return '/beneficiary/dashboard';
+    }
+    return '/';
+  };
+
+  const getDisplayName = () => {
+    if (beneficiarySession?.beneficiaryName) return beneficiarySession.beneficiaryName;
+    if (session?.user?.fullName) return session.user.fullName;
+    if (session?.user?.email) return session.user.email;
+    return 'User';
+  };
+
+  const handleMobileLogout = async () => {
+    try {
+      localStorage.removeItem('authToken');
+      const token = getAuthToken();
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          credentials: "include",
+        });
+      } catch (e) {
+        // Ignore logout errors
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
+      window.location.href = '/';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 max-w-7xl">
@@ -286,7 +376,7 @@ export default function Header() {
                 <SheetHeader>
                   <SheetTitle className="text-left">Navigation</SheetTitle>
                 </SheetHeader>
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 mb-6 space-y-4">
                   {/* Back */}
                   <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-back" onClick={goBackOrHome}>
                     Back
@@ -299,7 +389,52 @@ export default function Header() {
                     </Button>
                   </Link>
 
-                  {/* (Login / Sign Up handled by LoginSelector) */}
+                  {/* Login Selector Section */}
+                  {isLoggedIn ? (
+                    <div className="space-y-2 border-t pt-4">
+                      <p className="text-sm font-semibold text-muted-foreground px-2">Account</p>
+                      <Link href={getMyPageLink()}>
+                        <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-my-page">
+                          <LayoutDashboard className="w-4 h-4" />
+                          My Page
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start gap-2 text-destructive" 
+                        data-testid="mobile-logout"
+                        onClick={handleMobileLogout}
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </Button>
+                      <div className="px-2 py-1 text-xs text-muted-foreground">
+                        Logged in as: {getDisplayName()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 border-t pt-4">
+                      <p className="text-sm font-semibold text-muted-foreground px-2">Login</p>
+                      <Link href="/beneficiary/login">
+                        <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-login-beneficiary">
+                          <Tag className="w-4 h-4" />
+                          Beneficiary Login
+                        </Button>
+                      </Link>
+                      <Link href="/philanthropist/login">
+                        <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-login-philanthropist">
+                          <Users className="w-4 h-4" />
+                          Philanthropist (Donor)
+                        </Button>
+                      </Link>
+                      <Link href="/charity/login">
+                        <Button variant="ghost" className="w-full justify-start gap-2" data-testid="mobile-login-charity">
+                          <Building2 className="w-4 h-4" />
+                          Charity / Organization
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
 
                   {/* Donate Section */}
                   <div className="space-y-2">

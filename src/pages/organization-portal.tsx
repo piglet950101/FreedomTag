@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Building2, Users, Tag as TagIcon, Plus, ChevronRight, Shield, ExternalLink, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Building2, Users, Tag as TagIcon, Plus, ChevronRight, Shield, ExternalLink, RotateCcw, Eye, EyeOff, Scan } from "lucide-react";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import QRScanner from "@/components/QRScanner";
 import type { Organization } from "@shared/schema";
 
 interface TagWithBalance {
@@ -47,6 +48,7 @@ export default function OrganizationPortal() {
   const [giveTagCode, setGiveTagCode] = useState("");
   const [giveAmount, setGiveAmount] = useState("");
   const [giveDonorName, setGiveDonorName] = useState("");
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const { data: orgsData } = useQuery<{ organizations: Organization[] }>({
     queryKey: ['/api/organizations/list'],
@@ -219,6 +221,28 @@ export default function OrganizationPortal() {
     });
   };
 
+  const handleQRScan = (data: string) => {
+    // Extract tag code from scanned QR data
+    // QR data may be: /tag/TAG123, /quick-donate/TAG123, /donor/view/TAG123, or just TAG123
+    const tagMatch = data.match(/\/(?:tag|quick-donate|donor\/view)\/([A-Z0-9]+)/i) || data.match(/^([A-Z0-9]+)$/i);
+    
+    if (tagMatch) {
+      const scannedTag = tagMatch[1].toUpperCase();
+      setGiveTagCode(scannedTag);
+      setShowQRScanner(false);
+      toast({
+        title: 'Tag Detected',
+        description: `Scanned ${scannedTag}`,
+      });
+    } else {
+      toast({
+        title: 'Invalid QR Code',
+        description: 'The scanned QR code does not contain a valid Freedom Tag',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const renderTree = (node: OrgTreeNode, level = 0) => {
     return (
       <div key={node.id} className={level > 0 ? "ml-6 mt-2" : "mt-2"}>
@@ -241,12 +265,10 @@ export default function OrganizationPortal() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Link href="/admin">
-          <Button variant="ghost" className="mb-6" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Admin
-          </Button>
-        </Link>
+        <Button variant="ghost" className="mb-6" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 text-foreground">Organization Portal</h1>
@@ -297,13 +319,26 @@ export default function OrganizationPortal() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="giveTagCode">Beneficiary Tag Code</Label>
-                    <Input
-                      id="giveTagCode"
-                      placeholder="e.g., CT001"
-                      value={giveTagCode}
-                      onChange={(e) => setGiveTagCode(e.target.value)}
-                      data-testid="input-give-tag-code"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="giveTagCode"
+                        placeholder="e.g., CT001"
+                        value={giveTagCode}
+                        onChange={(e) => setGiveTagCode(e.target.value)}
+                        data-testid="input-give-tag-code"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowQRScanner(true)}
+                        data-testid="button-scan-qr"
+                        title="Scan QR Code"
+                      >
+                        <Scan className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="giveAmount">Amount (ZAR)</Label>
@@ -671,6 +706,24 @@ export default function OrganizationPortal() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Scanner Dialog */}
+      <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan QR Code</DialogTitle>
+            <DialogDescription>
+              Scan a Freedom Tag QR code to automatically fill in the beneficiary tag code
+            </DialogDescription>
+          </DialogHeader>
+          <QRScanner
+            onScan={handleQRScan}
+            onClose={() => setShowQRScanner(false)}
+            title="Scan Beneficiary Tag QR Code"
+            description="Point your camera at the beneficiary's Freedom Tag QR code"
+          />
         </DialogContent>
       </Dialog>
     </div>

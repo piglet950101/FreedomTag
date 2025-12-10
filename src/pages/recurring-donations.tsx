@@ -175,7 +175,7 @@ export default function RecurringDonations() {
       queryClient.invalidateQueries({ queryKey: ['/api/philanthropist/recurring-donations'] });
       form.reset();
       if (isAuthenticated) {
-        setActiveTab('manage');
+      setActiveTab('manage');
       }
     },
     onError: (error: Error) => {
@@ -195,11 +195,11 @@ export default function RecurringDonations() {
           ),
         });
       } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to create recurring donation",
-          variant: "destructive",
-        });
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create recurring donation",
+        variant: "destructive",
+      });
       }
     },
   });
@@ -241,7 +241,7 @@ export default function RecurringDonations() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
-      <div className="container mx-auto py-8 px-4" data-testid="page-recurring-donations">
+    <div className="container mx-auto py-8 px-4" data-testid="page-recurring-donations">
       <div className="mb-4">
         <Link href="/philanthropist/dashboard">
           <Button variant="ghost" className="mb-2" data-testid="button-back">
@@ -258,17 +258,17 @@ export default function RecurringDonations() {
       </div>
 
       {isAuthenticated ? (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'manage')}>
-          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6" data-testid="tabs-recurring-donations">
-            <TabsTrigger value="create" data-testid="tab-create">
-              <Coins className="w-4 h-4 mr-2" />
-              Create New
-            </TabsTrigger>
-            <TabsTrigger value="manage" data-testid="tab-manage">
-              <Calendar className="w-4 h-4 mr-2" />
-              Manage ({recurringDonations.length})
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'manage')}>
+        <TabsList className="grid w-full max-w-md grid-cols-2 mb-6" data-testid="tabs-recurring-donations">
+          <TabsTrigger value="create" data-testid="tab-create">
+            <Coins className="w-4 h-4 mr-2" />
+            Create New
+          </TabsTrigger>
+          <TabsTrigger value="manage" data-testid="tab-manage">
+            <Calendar className="w-4 h-4 mr-2" />
+            Manage ({recurringDonations.length})
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="create">
           <Card>
@@ -512,8 +512,8 @@ export default function RecurringDonations() {
         </TabsContent>
 
         <TabsContent value="manage">
-            <div className="space-y-4">
-              {loadingDonations ? (
+          <div className="space-y-4">
+            {loadingDonations ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
                   Loading your recurring donations...
@@ -616,9 +616,9 @@ export default function RecurringDonations() {
                 );
               })
             )}
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </TabsContent>
+      </Tabs>
       ) : (
         <Card>
           <CardHeader>

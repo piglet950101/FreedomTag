@@ -15,6 +15,8 @@ import BankPayment from "@/pages/bank-payment";
 import CryptoPayment from "@/pages/crypto-payment";
 import Merchant from "@/pages/merchant";
 import Admin from "@/pages/admin";
+import AdminUsers from "@/pages/admin-users";
+import AdminLogin from "@/pages/admin-login";
 import KioskHome from "@/pages/kiosk-home";
 import KioskDonate from "@/pages/kiosk-donate";
 import BeneficiaryLogin from "@/pages/beneficiary-login";
@@ -57,6 +59,7 @@ import DemoGuide from "@/pages/demo-guide";
 import StripeDonate from "@/pages/stripe-donate";
 import StripeCheckout from "@/pages/stripe-checkout";
 import StripeSuccess from "@/pages/stripe-success";
+import Terms from "@/pages/terms";
 import Header from "@/components/Header";
 
 function Router() {
@@ -108,6 +111,8 @@ function Router() {
       <Route path="/stripe/checkout/:tagCode" component={StripeCheckout} />
       <Route path="/stripe/success" component={StripeSuccess} />
       <Route path="/merchant" component={Merchant} />
+      <Route path="/admin-freedomtag" component={AdminLogin} />
+      <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin" component={Admin} />
       <Route path="/organization" component={OrganizationPortal} />
       <Route path="/demo-verification" component={DemoVerification} />
@@ -118,6 +123,7 @@ function Router() {
       <Route path="/kiosk/beneficiary/transfer" component={BeneficiaryTransfer} />
       <Route path="/tag/login" component={TagLogin} />
       <Route path="/user/dashboard/:tagCode" component={UserDashboard} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );

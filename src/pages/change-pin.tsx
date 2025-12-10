@@ -149,18 +149,18 @@ export default function ChangePinPage() {
             <div className="space-y-2">
               <Label htmlFor="current-pin">Current PIN *</Label>
               <div className="relative">
-                <Input
-                  id="current-pin"
+              <Input
+                id="current-pin"
                   type={showCurrentPin ? "text" : "password"}
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={currentPin}
-                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter current PIN"
+                inputMode="numeric"
+                maxLength={4}
+                value={currentPin}
+                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter current PIN"
                   className="pr-9"
-                  required
-                  data-testid="input-current-pin"
-                />
+                required
+                data-testid="input-current-pin"
+              />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPin(!showCurrentPin)}
@@ -185,18 +185,18 @@ export default function ChangePinPage() {
               <div className="space-y-2">
                 <Label htmlFor="new-pin">New PIN *</Label>
                 <div className="relative">
-                  <Input
-                    id="new-pin"
+                <Input
+                  id="new-pin"
                     type={showNewPin ? "text" : "password"}
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={newPin}
-                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter new PIN"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter new PIN"
                     className="pr-9"
-                    required
-                    data-testid="input-new-pin"
-                  />
+                  required
+                  data-testid="input-new-pin"
+                />
                   <button
                     type="button"
                     onClick={() => setShowNewPin(!showNewPin)}
@@ -218,18 +218,18 @@ export default function ChangePinPage() {
               <div className="space-y-2">
                 <Label htmlFor="confirm-new-pin">Confirm New PIN *</Label>
                 <div className="relative">
-                  <Input
-                    id="confirm-new-pin"
+                <Input
+                  id="confirm-new-pin"
                     type={showConfirmNewPin ? "text" : "password"}
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={confirmNewPin}
-                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Confirm new PIN"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={confirmNewPin}
+                  onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Confirm new PIN"
                     className="pr-9"
-                    required
-                    data-testid="input-confirm-new-pin"
-                  />
+                  required
+                  data-testid="input-confirm-new-pin"
+                />
                   <button
                     type="button"
                     onClick={() => setShowConfirmNewPin(!showConfirmNewPin)}

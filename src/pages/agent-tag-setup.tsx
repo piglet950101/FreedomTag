@@ -64,12 +64,12 @@ export default function AgentTagSetup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          beneficiaryName,
-          beneficiaryPhone: beneficiaryPhone.trim() || undefined,
-          organizationId,
-          accessCode,
+      beneficiaryName,
+      beneficiaryPhone: beneficiaryPhone.trim() || undefined,
+      organizationId,
+      accessCode,
         }),
-      });
+    });
 
       if (!response.ok) {
         const status = response.status;
@@ -246,16 +246,16 @@ export default function AgentTagSetup() {
               <div className="space-y-2">
                 <Label htmlFor="access-code">Access Code *</Label>
                 <div className="relative">
-                  <Input
-                    id="access-code"
+                <Input
+                  id="access-code"
                     type={showAccessCode ? "text" : "password"}
-                    value={accessCode}
-                    onChange={(e) => setAccessCode(e.target.value)}
-                    placeholder="Your organization's access code"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value)}
+                  placeholder="Your organization's access code"
                     className="pr-9"
-                    required
-                    data-testid="input-access-code"
-                  />
+                  required
+                  data-testid="input-access-code"
+                />
                   <button
                     type="button"
                     onClick={() => setShowAccessCode(!showAccessCode)}

@@ -23,9 +23,9 @@ interface UserSession {
   };
   roles: string[];
   beneficiaryTag?: {
-    tagCode: string;
+  tagCode: string;
     beneficiaryName: string;
-    balanceZAR: number;
+  balanceZAR: number;
   };
 }
 
@@ -383,7 +383,7 @@ export default function BeneficiaryDashboard() {
 
   // If beneficiary session exists, show beneficiary-specific dashboard
   if (beneficiarySession && isBeneficiaryDashboard) {
-    return (
+  return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="mb-4">
@@ -393,7 +393,7 @@ export default function BeneficiaryDashboard() {
             </Button>
           </div>
           <div className="flex items-center justify-between mb-8">
-            <div>
+              <div>
               <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-dashboard-title">
                 <Heart className="w-8 h-8 text-primary" />
                 Beneficiary Dashboard
@@ -916,15 +916,15 @@ export default function BeneficiaryDashboard() {
                   <p className="text-xl font-bold text-foreground">
                     {cryptoBalances.USDT.toFixed(2)} USDT
                   </p>
-                </div>
-              </div>
+        </div>
+      </div>
             </CardContent>
           </Card>
         )}
 
         {!hasBlockkoinAccount && (
           <Card className="mb-8 border-orange-500/20 bg-orange-50/50">
-            <CardHeader>
+          <CardHeader>
               <CardTitle className="flex items-center gap-2 text-orange-900">
                 <Bitcoin className="h-5 w-5 text-orange-600" />
                 Connect Blockkoin Wallet
@@ -932,7 +932,7 @@ export default function BeneficiaryDashboard() {
               <CardDescription>
                 Create or connect your Blockkoin wallet to view balances and send/receive crypto.
               </CardDescription>
-            </CardHeader>
+          </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
                 <Button
@@ -964,8 +964,8 @@ export default function BeneficiaryDashboard() {
                   {isLinkingBlockkoin ? 'Linking…' : 'Link Wallet'}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
         )}
 
         <div className="space-y-6">
@@ -1002,7 +1002,7 @@ export default function BeneficiaryDashboard() {
                         onClick={() => !isDisabled && setLocation(action.action)}
                         data-testid={`card-action-${action.action.replace(/\//g, '-')}`}
                       >
-                        <CardHeader>
+              <CardHeader>
                           <CardTitle className="flex items-center gap-2 text-base">
                             <action.icon className="h-5 w-5 text-primary" />
                             {action.title}
@@ -1041,7 +1041,7 @@ export default function BeneficiaryDashboard() {
               tagCode={session.beneficiaryTag.tagCode}
               size={160}
             />
-          </div>
+        </div>
         )}
       </main>
     </div>

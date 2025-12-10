@@ -68,14 +68,14 @@ export default function BeneficiaryLogin() {
           if (roles && roles.indexOf('BENEFICIARY') !== -1) {
             // If user has beneficiary tag, store it
             if (me.beneficiaryTag) {
-              const b = me.beneficiaryTag;
-              const beneficiarySession = {
-                tagCode: b.tagCode,
-                walletId: b.walletId || '',
-                balanceZAR: Number(b.balanceZAR) || 0,
-              };
-              sessionStorage.setItem('beneficiary', JSON.stringify(beneficiarySession));
-            }
+            const b = me.beneficiaryTag;
+            const beneficiarySession = {
+              tagCode: b.tagCode,
+              walletId: b.walletId || '',
+              balanceZAR: Number(b.balanceZAR) || 0,
+            };
+            sessionStorage.setItem('beneficiary', JSON.stringify(beneficiarySession));
+          }
             
             setLocation('/beneficiary/dashboard');
           } else {
@@ -162,16 +162,16 @@ export default function BeneficiaryLogin() {
                   <a className="text-sm text-green-600 hover:underline" onClick={() => setLocation('/forgot-password')}>Forgot password?</a>
                 </div>
                 <div className="relative mt-2">
-                  <Input
-                    id="password"
+                <Input
+                  id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                     className="pr-9"
-                    required
-                    data-testid="input-password"
-                  />
+                  required
+                  data-testid="input-password"
+                />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}

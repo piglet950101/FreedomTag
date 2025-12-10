@@ -172,17 +172,17 @@ export default function BeneficiaryPortal() {
                   <div className="space-y-2">
                     <Label htmlFor="pin">PIN</Label>
                     <div className="relative">
-                      <Input
-                        id="pin"
+                    <Input
+                      id="pin"
                         type={showPin ? "text" : "password"}
-                        placeholder="Enter your 6-digit PIN"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                        maxLength={6}
+                      placeholder="Enter your 6-digit PIN"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      maxLength={6}
                         className="pr-9"
-                        disabled={isLoading}
-                        data-testid="input-pin"
-                      />
+                      disabled={isLoading}
+                      data-testid="input-pin"
+                    />
                       <button
                         type="button"
                         onClick={() => setShowPin(!showPin)}
