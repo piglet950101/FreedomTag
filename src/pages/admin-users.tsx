@@ -132,6 +132,29 @@ export default function AdminUsers() {
     },
   });
 
+  const deleteOrganizationMutation = useMutation({
+    mutationFn: async (organizationId: string) => {
+      const token = getAuthToken();
+      const res = await fetch(`/api/organizations/${organizationId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete organization');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Organization deleted successfully" });
+      refetchOrganizations();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete organization", variant: "destructive" });
+    },
+  });
+
   const renderUserCard = (user: any) => (
     <Card key={user.id} data-testid={`card-user-${user.id}`}>
       <CardContent className="pt-6">
@@ -321,7 +344,7 @@ export default function AdminUsers() {
                 Philanthropist ({usersByRole.PHILANTHROPIST.length})
               </TabsTrigger>
               <TabsTrigger value="ORGANIZATION" data-testid="tab-organization-users">
-                Organization ({usersByRole.ORGANIZATION.length})
+                Organization ({usersByRole.ORGANIZATION.length + (organizationsData?.organizations?.length || 0)})
               </TabsTrigger>
             </TabsList>
 
@@ -367,10 +390,84 @@ export default function AdminUsers() {
 
             <TabsContent value="ORGANIZATION" className="mt-4">
               <div className="space-y-2">
-                {usersByRole.ORGANIZATION.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No organization users found</div>
-                ) : (
-                  usersByRole.ORGANIZATION.map(renderUserCard)
+                {/* Show users with ORGANIZATION role */}
+                {usersByRole.ORGANIZATION.length > 0 && (
+                  <>
+                    {usersByRole.ORGANIZATION.map(renderUserCard)}
+                  </>
+                )}
+                
+                {/* Show organizations/charities */}
+                {organizationsLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading organizations...</div>
+                ) : organizationsError ? (
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm font-medium text-destructive">Error loading organizations</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {organizationsError instanceof Error ? organizationsError.message : 'Unknown error occurred'}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => refetchOrganizations()}
+                      data-testid="button-retry-organizations"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : organizationsData?.organizations?.length > 0 ? (
+                  organizationsData.organizations.map((org: any) => (
+                    <Card key={org.id} data-testid={`card-organization-${org.id}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <Building2 className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{org.name}</div>
+                              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                <Mail className="w-3 h-3" />
+                                {org.email}
+                              </div>
+                              {org.tagCode && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Tag: {org.tagCode}
+                                </div>
+                              )}
+                              {org.referralCode && (
+                                <div className="text-xs text-muted-foreground">
+                                  Referral: {org.referralCode}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete organization ${org.name}?`)) {
+                                deleteOrganizationMutation.mutate(org.id);
+                              }
+                            }}
+                            disabled={deleteOrganizationMutation.isPending}
+                            data-testid={`button-delete-organization-${org.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : null}
+                
+                {/* Show message if no organizations found */}
+                {usersByRole.ORGANIZATION.length === 0 && 
+                 !organizationsLoading && 
+                 !organizationsError && 
+                 organizationsData?.organizations?.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No organizations found</div>
                 )}
               </div>
             </TabsContent>

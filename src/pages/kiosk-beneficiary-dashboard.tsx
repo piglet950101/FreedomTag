@@ -54,7 +54,7 @@ export default function KioskBeneficiaryDashboard() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('beneficiary');
-    setLocation('/kiosk');
+    setLocation('/');
   };
 
   if (!beneficiaryData) {

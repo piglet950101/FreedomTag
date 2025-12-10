@@ -239,8 +239,8 @@ export default function BeneficiaryDashboard() {
         description: "You have been logged out of your account.",
       });
       
-      // Redirect to login
-      setLocation("/beneficiary/login");
+      // Redirect to home
+      setLocation("/");
     } catch (error) {
       console.error('Logout error:', error);
       // Even if logout fails, clear token and redirect
@@ -250,7 +250,7 @@ export default function BeneficiaryDashboard() {
         title: "Logged out",
         description: "You have been logged out.",
       });
-      setLocation("/beneficiary/login");
+      setLocation("/");
     }
   };
 
