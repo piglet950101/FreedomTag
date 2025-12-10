@@ -5,6 +5,19 @@ import { Button } from '@/components/ui/button';
 import { ChevronDown, LogIn, Tag, Users, Building2, User, LogOut, Shield } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 
+// Helper function to decode JWT token payload (without verification)
+function decodeJWTPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decoded);
+  } catch (error) {
+    return null;
+  }
+}
+
 export default function LoginSelector() {
   const [open, setOpen] = useState(false);
   const [lastRole, setLastRole] = useState<string | null>(null);
@@ -16,8 +29,13 @@ export default function LoginSelector() {
   // Check if user is logged in
   const getAuthToken = () => localStorage.getItem('authToken');
   const hasToken = !!getAuthToken();
+  
+  // Decode token to determine type
+  const token = getAuthToken();
+  const tokenPayload = token ? decodeJWTPayload(token) : null;
+  const tokenType = tokenPayload?.type; // 'philanthropist', 'user', or undefined
 
-  // Check user session to determine dashboard route
+  // Check user session - only if token type is 'user' or undefined (for backward compatibility)
   const { data: session } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
@@ -31,11 +49,11 @@ export default function LoginSelector() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: hasToken,
+    enabled: hasToken && (tokenType === 'user' || !tokenType), // Only if user type or unknown
     retry: false,
   });
 
-  // Check beneficiary session
+  // Check beneficiary session - only if token type is 'beneficiary'
   const { data: beneficiarySession } = useQuery({
     queryKey: ["/api/beneficiary/me"],
     queryFn: async () => {
@@ -49,17 +67,38 @@ export default function LoginSelector() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: hasToken,
+    enabled: hasToken && tokenType === 'beneficiary', // Only if beneficiary type
+    retry: false,
+  });
+
+  // Check philanthropist session - only if token type is 'philanthropist'
+  const { data: philanthropistSession } = useQuery({
+    queryKey: ["/api/philanthropist/me"],
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      const res = await fetch('/api/philanthropist/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: hasToken && tokenType === 'philanthropist', // Only if philanthropist type
     retry: false,
   });
 
   // Determine if user is logged in and which dashboard to show
-  const isLoggedIn = hasToken && (!!session || !!beneficiarySession);
+  const isLoggedIn = hasToken && (!!session || !!beneficiarySession || !!philanthropistSession);
   
   // Determine dashboard route based on user type
   const getDashboardRoute = () => {
     if (beneficiarySession) {
       return '/beneficiary/dashboard';
+    }
+    if (philanthropistSession) {
+      return '/philanthropist/dashboard';
     }
     if (session) {
       const roles = session.roles || [];
@@ -146,8 +185,10 @@ export default function LoginSelector() {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/philanthropist/me"] });
       queryClient.removeQueries({ queryKey: ["/api/auth/me"] });
       queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/philanthropist/me"] });
       
       setOpen(false);
       setLocation("/");
@@ -159,6 +200,7 @@ export default function LoginSelector() {
       localStorage.removeItem('authToken');
       queryClient.removeQueries({ queryKey: ["/api/auth/me"] });
       queryClient.removeQueries({ queryKey: ["/api/beneficiary/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/philanthropist/me"] });
       setOpen(false);
       setLocation("/");
       window.location.reload();
@@ -168,6 +210,8 @@ export default function LoginSelector() {
   // If logged in, show user menu
   if (isLoggedIn) {
     const userName = beneficiarySession?.beneficiaryName || 
+                     philanthropistSession?.displayName ||
+                     philanthropistSession?.email ||
                      session?.user?.fullName || 
                      session?.user?.email || 
                      'User';

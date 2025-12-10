@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, UserPlus, Trash2, Mail, User as UserIcon, Building2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -19,6 +20,10 @@ export default function AdminUsers() {
   const [newUserFullName, setNewUserFullName] = useState("");
   const [newUserRole, setNewUserRole] = useState("BENEFICIARY");
   const [selectedRoleTab, setSelectedRoleTab] = useState("all");
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string } | null>(null);
+  const [deleteOrgDialogOpen, setDeleteOrgDialogOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch organizations (charities)
   const { data: organizationsData, isLoading: organizationsLoading, error: organizationsError, refetch: refetchOrganizations } = useQuery<any>({
@@ -185,9 +190,8 @@ export default function AdminUsers() {
             variant="destructive"
             size="sm"
             onClick={() => {
-              if (confirm(`Are you sure you want to delete user ${user.email}?`)) {
-                deleteUserMutation.mutate(user.id);
-              }
+              setUserToDelete({ id: user.id, email: user.email });
+              setDeleteUserDialogOpen(true);
             }}
             disabled={deleteUserMutation.isPending}
             data-testid={`button-delete-user-${user.id}`}
@@ -447,9 +451,8 @@ export default function AdminUsers() {
                             variant="destructive"
                             size="sm"
                             onClick={() => {
-                              if (confirm(`Are you sure you want to delete organization ${org.name}?`)) {
-                                deleteOrganizationMutation.mutate(org.id);
-                              }
+                              setOrgToDelete({ id: org.id, name: org.name });
+                              setDeleteOrgDialogOpen(true);
                             }}
                             disabled={deleteOrganizationMutation.isPending}
                             data-testid={`button-delete-organization-${org.id}`}
@@ -474,6 +477,60 @@ export default function AdminUsers() {
           </Tabs>
         )}
       </div>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete user <strong>{userToDelete?.email}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (userToDelete) {
+                  deleteUserMutation.mutate(userToDelete.id);
+                  setDeleteUserDialogOpen(false);
+                  setUserToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Organization Confirmation Dialog */}
+      <AlertDialog open={deleteOrgDialogOpen} onOpenChange={setDeleteOrgDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete organization <strong>{orgToDelete?.name}</strong>? This action cannot be undone and will also delete associated tags.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (orgToDelete) {
+                  deleteOrganizationMutation.mutate(orgToDelete.id);
+                  setDeleteOrgDialogOpen(false);
+                  setOrgToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
