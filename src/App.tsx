@@ -15,10 +15,13 @@ import BankPayment from "@/pages/bank-payment";
 import CryptoPayment from "@/pages/crypto-payment";
 import Merchant from "@/pages/merchant";
 import Admin from "@/pages/admin";
+import AdminUsers from "@/pages/admin-users";
+import AdminLogin from "@/pages/admin-login";
 import KioskHome from "@/pages/kiosk-home";
 import KioskDonate from "@/pages/kiosk-donate";
 import BeneficiaryLogin from "@/pages/beneficiary-login";
 import BeneficiaryDashboard from "@/pages/beneficiary-dashboard";
+import KioskBeneficiaryDashboard from "@/pages/kiosk-beneficiary-dashboard";
 import BeneficiaryTransfer from "@/pages/beneficiary-transfer";
 import UserDashboard from "@/pages/user-dashboard";
 import TagLogin from "@/pages/tag-login";
@@ -44,7 +47,6 @@ import ChangePinPage from "@/pages/change-pin";
 import WelcomePage from "@/pages/welcome";
 import SignupPage from "@/pages/signup";
 import LoginPage from "@/pages/login";
-import Dashboard from "@/pages/dashboard";
 import CryptoDemo from "@/pages/crypto-demo";
 import VerifiedCharities from "@/pages/verified-charities";
 import DustyBinVote from "@/pages/dusty-bin-vote";
@@ -57,6 +59,7 @@ import DemoGuide from "@/pages/demo-guide";
 import StripeDonate from "@/pages/stripe-donate";
 import StripeCheckout from "@/pages/stripe-checkout";
 import StripeSuccess from "@/pages/stripe-success";
+import Terms from "@/pages/terms";
 import Header from "@/components/Header";
 
 function Router() {
@@ -67,10 +70,9 @@ function Router() {
       <Route path="/welcome-old" component={WelcomePage} />
       <Route path="/beneficiary/signup" component={SignupPage} />
       <Route path="/beneficiary/login" component={BeneficiaryLogin} />
-      {/* <Route path="/beneficiary/dashboard" component={BeneficiaryDashboard} /> */}
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password/:token" component={ResetPassword} />
-      <Route path="/beneficiary/dashboard" component={Dashboard} />
+      <Route path="/beneficiary/dashboard" component={BeneficiaryDashboard} />
       <Route path="/crypto-demo" component={CryptoDemo} />
       <Route path="/home" component={Home} />
       <Route path="/verified-charities" component={VerifiedCharities} />
@@ -109,16 +111,19 @@ function Router() {
       <Route path="/stripe/checkout/:tagCode" component={StripeCheckout} />
       <Route path="/stripe/success" component={StripeSuccess} />
       <Route path="/merchant" component={Merchant} />
+      <Route path="/admin-freedomtag" component={AdminLogin} />
+      <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin" component={Admin} />
       <Route path="/organization" component={OrganizationPortal} />
       <Route path="/demo-verification" component={DemoVerification} />
       <Route path="/kiosk" component={KioskHome} />
       <Route path="/kiosk/donate/:tagCode" component={KioskDonate} />
       <Route path="/kiosk/beneficiary" component={BeneficiaryLogin} />
-      <Route path="/kiosk/beneficiary/dashboard" component={BeneficiaryDashboard} />
+      <Route path="/kiosk/beneficiary/dashboard" component={KioskBeneficiaryDashboard} />
       <Route path="/kiosk/beneficiary/transfer" component={BeneficiaryTransfer} />
       <Route path="/tag/login" component={TagLogin} />
       <Route path="/user/dashboard/:tagCode" component={UserDashboard} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );

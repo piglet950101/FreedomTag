@@ -117,12 +117,12 @@ export default function Donor() {
       await fetch('/api/donor/logout', { method: 'POST' });
       // Clear local session storage
       sessionStorage.removeItem(`auth_${tagCode}`);
-      setLocation('/donor');
+      setLocation('/');
     } catch (error) {
       console.error('Logout failed:', error);
       // Still clear local storage and redirect
       sessionStorage.removeItem(`auth_${tagCode}`);
-      setLocation('/donor');
+      setLocation('/');
     }
   };
 

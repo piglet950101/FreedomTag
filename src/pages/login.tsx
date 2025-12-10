@@ -56,13 +56,13 @@ export default function LoginPage() {
       });
       
       setTimeout(() => {
-        setLocation('/dashboard');
+        setLocation('/beneficiary/dashboard');
       }, 1000);
     },
     onError: (error: Error) => {
       toast({
-        title: "Login failed",
-        description: error.message,
+        title: "Login Failed",
+        description: "Incorrect email or password.",
         variant: "destructive",
       });
     },

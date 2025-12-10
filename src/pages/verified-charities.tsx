@@ -4,9 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, ExternalLink, Building2, Globe, Calendar, ArrowLeft, CheckCircle2, FileCheck } from "lucide-react";
 import { Link } from "wouter";
-import type { Organization } from "@shared/schema";
 import Leaderboard from "@/components/Leaderboard";
 import Header from "@/components/Header";
+
+// Organization type with optional tagCode
+interface Organization {
+  id: string;
+  name: string;
+  type: string;
+  smartContractAddress?: string | null;
+  blockchainNetwork?: string | null;
+  contractDeployedAt?: Date | string | null;
+  charityRegistrationNumber?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  website?: string | null;
+  facebook?: string | null;
+  twitter?: string | null;
+  instagram?: string | null;
+  tagCode?: string | null;
+}
 
 export default function VerifiedCharities() {
   const { data: orgsData } = useQuery<{ organizations: Organization[] }>({
@@ -14,6 +31,19 @@ export default function VerifiedCharities() {
   });
 
   const organizations = orgsData?.organizations || [];
+  
+  // Debug: Log organizations with tag codes
+  if (orgsData?.organizations && orgsData.organizations.length > 0) {
+    console.log('[VerifiedCharities] Organizations with tag codes:', 
+      orgsData.organizations.map(org => ({ 
+        name: org.name, 
+        id: org.id, 
+        tagCode: org.tagCode,
+        hasTagCode: !!(org.tagCode && org.tagCode.trim())
+      }))
+    );
+  }
+  
   const verifiedOrgs = organizations.filter(org => org.smartContractAddress);
   const unverifiedOrgs = organizations.filter(org => !org.smartContractAddress);
 
@@ -121,7 +151,10 @@ export default function VerifiedCharities() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-2">
-                      <Link href={`/donor?org=${org.id}`} className="flex-1">
+                      <Link 
+                        href={org.tagCode && org.tagCode.trim() ? `/donor/view/${org.tagCode}` : `/donor?org=${org.id}`} 
+                        className="flex-1"
+                      >
                         <Button className="w-full gap-2" data-testid={`button-donate-${org.id}`}>
                           Donate Now
                         </Button>
@@ -229,7 +262,10 @@ export default function VerifiedCharities() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
-                      <Link href={`/donor?org=${org.id}`} className="flex-1">
+                      <Link 
+                        href={org.tagCode && org.tagCode.trim() ? `/donor/view/${org.tagCode}` : `/donor?org=${org.id}`} 
+                        className="flex-1"
+                      >
                         <Button variant="outline" className="w-full gap-2" data-testid={`button-donate-${org.id}`}>
                           Donate Now
                         </Button>

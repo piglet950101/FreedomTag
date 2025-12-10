@@ -4,11 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Shield, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
-export default function CharityLogin() {
+export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export default function CharityLogin() {
     setIsLoggingIn(true);
 
     try {
-      const response = await fetch('/api/charity/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -49,16 +49,57 @@ export default function CharityLogin() {
 
       const data = await response.json();
 
-      toast({
-        title: "Welcome back!",
-        description: "Redirecting to your credibility page...",
-      });
+      // Store JWT token
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
 
-      // Redirect to charity credibility page with tag code from login response if available
-      const tagCode = data?.tagCode || 'CH172048';
-      setTimeout(() => {
-        setLocation(`/charity/credibility/${tagCode}`);
-      }, 1000);
+      // Verify user has ADMIN role
+      try {
+        const meRes = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${data.token}`,
+          },
+          credentials: 'include',
+        });
+
+        if (meRes.ok) {
+          const me = await meRes.json();
+          const roles: string[] = me.roles || [];
+          
+          if (!roles.includes('ADMIN')) {
+            toast({
+              title: "Access Denied",
+              description: "This account does not have administrator privileges.",
+              variant: "destructive",
+            });
+            setIsLoggingIn(false);
+            localStorage.removeItem('authToken');
+            return;
+          }
+
+          toast({
+            title: "Welcome!",
+            description: "Redirecting to admin dashboard...",
+          });
+
+          // Redirect to admin dashboard
+          setTimeout(() => {
+            setLocation('/admin');
+          }, 1000);
+        } else {
+          throw new Error('Failed to verify user');
+        }
+      } catch (e) {
+        console.error('Token verification error:', e);
+        toast({
+          title: "Authentication Error",
+          description: "Login successful but could not verify session. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoggingIn(false);
+        localStorage.removeItem('authToken');
+      }
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -79,11 +120,11 @@ export default function CharityLogin() {
 
         <Card>
           <CardHeader className="text-center">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-3 mx-auto">
-              <Building2 className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <Shield className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-2xl">Organization Login</CardTitle>
-            <CardDescription>Access your charity portal</CardDescription>
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <CardDescription>Access the Freedom Tag admin dashboard</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -95,7 +136,7 @@ export default function CharityLogin() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="organization@example.com"
+                    placeholder="admin@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"
@@ -144,20 +185,15 @@ export default function CharityLogin() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center space-y-2">
-              <Link href="/forgot-password">
-                <Button variant="link" className="text-sm" data-testid="link-forgot-password">
-                  Forgot password?
-                </Button>
-              </Link>
-
-              <div className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link href="/charity/signup">
-                  <Button variant="link" className="p-0 h-auto font-semibold" data-testid="link-signup">
-                    Sign up
-                  </Button>
-                </Link>
+            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-primary mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-foreground mb-1">Administrator Access</p>
+                  <p className="text-muted-foreground text-xs">
+                    Only accounts with ADMIN role can access this dashboard. Contact your system administrator if you need access.
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -166,3 +202,4 @@ export default function CharityLogin() {
     </div>
   );
 }
+

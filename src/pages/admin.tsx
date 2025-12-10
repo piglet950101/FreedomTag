@@ -5,6 +5,7 @@ import { ArrowLeft, Tag, Building2, Info, Users, CreditCard, Clock } from "lucid
 import { useQuery } from "@tanstack/react-query";
 
 export default function Admin() {
+
   const { data: tagsData, isLoading: tagsLoading } = useQuery<any>({
     queryKey: ['/api/tags/list'],
   });
@@ -16,6 +17,7 @@ export default function Admin() {
   const { data: recentDonationsData } = useQuery<any>({
     queryKey: ['/api/donations/recent'],
   });
+
 
   const formatCurrency = (cents: number | undefined) => {
     if (typeof cents !== 'number') return 'R 0.00';
@@ -243,6 +245,30 @@ export default function Admin() {
                 </Card>
               ))}
             </div>
+          </div>
+
+          {/* User Management Link */}
+          <div>
+            <Link href="/admin/users">
+              <Card className="hover-elevate cursor-pointer transition-all" data-testid="card-user-management-link">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">User Management</CardTitle>
+                      <CardDescription>Manage users and their roles</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    View, create, and manage user accounts with role-based filtering
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </div>
       </div>

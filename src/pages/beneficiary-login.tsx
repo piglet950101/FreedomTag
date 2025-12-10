@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, ArrowLeft, Lock, ShieldCheck, Heart } from "lucide-react";
+import { UserCircle, ArrowLeft, Lock, ShieldCheck, Heart, Eye, EyeOff } from "lucide-react";
 import { goBackOrHome } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -15,10 +15,11 @@ export default function BeneficiaryLogin() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -26,29 +27,47 @@ export default function BeneficiaryLogin() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        credentials: 'include', // CRITICAL: Include cookies for session
         body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
         toast({
           title: "Login Failed",
-          description: error.error === 'invalid pin' ? "Invalid PIN. Please try again." : "Tag not found.",
+          description: "Incorrect email or password.",
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
 
-      // Populate session using /auth/me so dashboard finds 'beneficiary'
+      // Parse response once
+      const loginData = await response.json();
+      console.log('[BeneficiaryLogin] Login successful:', loginData);
+
+      // Store JWT token
+      if (loginData.token) {
+        localStorage.setItem('authToken', loginData.token);
+        console.log('[BeneficiaryLogin] JWT token stored');
+      }
+
+      // Verify token by calling /api/auth/me
       try {
-        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        const meRes = await fetch('/api/auth/me', { 
+          headers: {
+            'Authorization': `Bearer ${loginData.token}`,
+          },
+        });
         if (meRes.ok) {
           const me = await meRes.json();
+          console.log('[BeneficiaryLogin] Token verified:', me);
           sessionStorage.setItem('user', JSON.stringify(me));
+          
+          // Check if user has BENEFICIARY role
           const roles: string[] = me.roles || [];
-          if (roles && roles.indexOf('BENEFICIARY') !== -1 && me.beneficiaryTag) {
+          if (roles && roles.indexOf('BENEFICIARY') !== -1) {
+            // If user has beneficiary tag, store it
+            if (me.beneficiaryTag) {
             const b = me.beneficiaryTag;
             const beneficiarySession = {
               tagCode: b.tagCode,
@@ -57,23 +76,33 @@ export default function BeneficiaryLogin() {
             };
             sessionStorage.setItem('beneficiary', JSON.stringify(beneficiarySession));
           }
+            
+            setLocation('/beneficiary/dashboard');
+          } else {
+            toast({
+              title: "Access Denied",
+              description: "Your account does not have beneficiary access.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+          }
+        } else {
+          console.error('[BeneficiaryLogin] Token verification failed:', meRes.status);
+          toast({
+            title: "Authentication Error",
+            description: "Login successful but token verification failed. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
         }
       } catch (e) {
-        console.warn('Failed to load /auth/me after login:', e);
-      }
-
-      // Small delay to ensure session cookie is set before redirect
-      setTimeout(() => {
-      setLocation('/beneficiary/dashboard');
-      }, 200);
-      
-
-      // Try to store session data, but don't block navigation if parsing fails
-      try {
-        const data = await response.json();
-        sessionStorage.setItem('user', JSON.stringify(data));
-      } catch (e) {
-        console.warn('Login response parse failed, continuing navigation:', e);
+        console.error('[BeneficiaryLogin] Failed to verify token:', e);
+        toast({
+          title: "Authentication Error",
+          description: "Login successful but could not verify token. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -132,16 +161,30 @@ export default function BeneficiaryLogin() {
                   </Label>
                   <a className="text-sm text-green-600 hover:underline" onClick={() => setLocation('/forgot-password')}>Forgot password?</a>
                 </div>
+                <div className="relative mt-2">
                 <Input
                   id="password"
-                  type="password"
+                    type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-2"
+                    className="pr-9"
                   required
                   data-testid="input-password"
                 />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-password"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

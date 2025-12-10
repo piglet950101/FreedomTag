@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Heart, User, Calendar, TrendingUp, ArrowLeft, Wallet, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Heart, User, Calendar, TrendingUp, ArrowLeft, Wallet, ShieldCheck, CheckCircle2, Receipt } from "lucide-react";
 import { Link } from "wouter";
 import DonationQRCode from "@/components/DonationQRCode";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface TagInfo {
   tagCode: string;
@@ -16,10 +18,10 @@ interface TagInfo {
   balanceZAR: number;
   beneficiaryName?: string;
   beneficiaryType?: string;
-  createdAt?: string;
   organization?: {
     name: string;
     smartContractAddress?: string;
+    blockchainNetwork?: string;
   };
 }
 
@@ -36,6 +38,10 @@ export default function DonorViewTag() {
   const [amount, setAmount] = useState("0");
   const [isPayingBank, setIsPayingBank] = useState(false);
   const [isPayingCrypto, setIsPayingCrypto] = useState(false);
+  const [needTaxReceipt, setNeedTaxReceipt] = useState(false);
+  const [donorEmail, setDonorEmail] = useState("");
+  const [donorName, setDonorName] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const { toast } = useToast();
 
   // Check for payment success in URL
@@ -62,33 +68,92 @@ export default function DonorViewTag() {
 
   const { data: donationsData } = useQuery<{ donations: Donation[] }>({
     queryKey: [`/api/tag/${tagCode}/donations`],
+    retry: false, // Don't retry on error
+    // Return empty array on error to prevent page breakage
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/tag/${tagCode}/donations`);
+        if (!res.ok) {
+          return { donations: [] };
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Failed to fetch donations:', error);
+        return { donations: [] };
+      }
+    },
   });
 
   const handleBankPayment = async (amountZAR: number) => {
+    if (!agreeTerms) {
+      toast({
+        title: "Terms Required",
+        description: "Please agree to the donation terms to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (needTaxReceipt && (!donorEmail || !donorName)) {
+      toast({
+        title: "Tax receipt information required",
+        description: "Please provide your name and email for tax receipt",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPayingBank(true);
     try {
-      const response = await fetch('/api/donate/public', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tagCode, amountZAR }),
+      // Redirect to bank payment page with Stripe Checkout
+      const params = new URLSearchParams({
+        tagCode: tagCode || '',
+        amountZAR: String(Math.round(amountZAR)),
+        source: 'public',
+        ...(needTaxReceipt && donorEmail && donorName ? {
+          needTaxReceipt: '1',
+          donorEmail,
+          donorName,
+        } : {}),
       });
-      const data = await response.json();
-      if (data.bankSimUrl) {
-        window.location.href = data.bankSimUrl;
-      }
+      window.location.href = `/bank/pay?${params.toString()}`;
     } catch (error) {
-      console.error('Bank payment failed:', error);
+      console.error('Bank payment redirect failed:', error);
       setIsPayingBank(false);
     }
   };
 
   const handleCryptoPayment = async (amountZAR: number) => {
+    if (!agreeTerms) {
+      toast({
+        title: "Terms Required",
+        description: "Please agree to the donation terms to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (needTaxReceipt && (!donorEmail || !donorName)) {
+      toast({
+        title: "Tax receipt information required",
+        description: "Please provide your name and email for tax receipt",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPayingCrypto(true);
     try {
       const response = await fetch('/api/crypto/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tagCode, amountZAR }),
+        body: JSON.stringify({ 
+          tagCode, 
+          amountZAR,
+          needTaxReceipt,
+          donorEmail: needTaxReceipt ? donorEmail : undefined,
+          donorName: needTaxReceipt ? donorName : undefined,
+        }),
       });
       const data = await response.json();
       if (data.cryptoSimUrl) {
@@ -136,10 +201,13 @@ export default function DonorViewTag() {
                     </div>
                     <div>
                       <CardTitle className="text-2xl">
-                        {tagInfo?.beneficiaryName || 'Beneficiary'}
+                        {tagInfo?.organization?.name || tagInfo?.beneficiaryName || 'Beneficiary'}
                       </CardTitle>
                       <CardDescription className="text-base">
                         Freedom Tag: <span className="font-mono font-semibold">{tagCode}</span>
+                        {tagInfo?.beneficiaryType && (
+                          <span className="ml-2 text-xs">({tagInfo.beneficiaryType})</span>
+                        )}
                       </CardDescription>
                     </div>
                   </div>
@@ -153,12 +221,14 @@ export default function DonorViewTag() {
                 <div>
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     <Heart className="w-4 h-4 text-primary" />
-                    Their Story
+                    {tagInfo?.organization ? 'About This Organization' : 'Their Story'}
                   </h3>
                   <p className="text-muted-foreground">
-                    {tagInfo?.beneficiaryName || 'This person'} is part of the Freedom Tag program, 
-                    empowering financial inclusion and dignity through blockchain technology.
-                    Your donation goes 100% directly to them.
+                    {tagInfo?.organization 
+                      ? `${tagInfo.organization.name} is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to those in need.`
+                      : tagInfo?.beneficiaryName
+                      ? `${tagInfo.beneficiaryName} is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to them.`
+                      : 'This person is part of the Freedom Tag program, empowering financial inclusion and dignity through blockchain technology. Your donation goes 100% directly to them.'}
                   </p>
                 </div>
 
@@ -188,9 +258,7 @@ export default function DonorViewTag() {
                       Member Since
                     </div>
                     <p className="font-semibold">
-                      {tagInfo?.createdAt 
-                        ? new Date(tagInfo.createdAt).toLocaleDateString() 
-                        : 'Recently'}
+                      Recently
                     </p>
                   </div>
                   <div>
@@ -199,8 +267,13 @@ export default function DonorViewTag() {
                       Total Received
                     </div>
                     <p className="font-semibold">
-                      {donationsData?.donations?.length || 0} donations
+                      {donationsData?.donations?.length || 0} {donationsData?.donations?.length === 1 ? 'donation' : 'donations'}
                     </p>
+                    {donationsData?.donations && donationsData.donations.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        R {((donationsData.donations.reduce((sum: number, d: Donation) => sum + d.amount, 0)) / 100).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -241,6 +314,12 @@ export default function DonorViewTag() {
                 )}
               </CardContent>
             </Card>
+
+            {/* QR Code */}
+            <DonationQRCode
+              tagCode={tagCode}
+              size={140}
+            />
           </div>
 
           {/* Right Column - Donation Form */}
@@ -290,6 +369,74 @@ export default function DonorViewTag() {
                   />
                 </div>
 
+                {/* Tax Receipt Option */}
+                <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="taxReceipt" 
+                      checked={needTaxReceipt}
+                      onCheckedChange={(checked) => setNeedTaxReceipt(checked as boolean)}
+                      data-testid="checkbox-tax-receipt"
+                    />
+                    <Label htmlFor="taxReceipt" className="flex items-center gap-2 cursor-pointer">
+                      <Receipt className="w-4 h-4" />
+                      I need a tax receipt
+                    </Label>
+                  </div>
+                  
+                  {needTaxReceipt && (
+                    <div className="space-y-3 pl-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="donorName" className="text-sm">Full Name</Label>
+                        <Input
+                          id="donorName"
+                          placeholder="Your full name"
+                          value={donorName}
+                          onChange={(e) => setDonorName(e.target.value)}
+                          data-testid="input-donor-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="donorEmail" className="text-sm">Email Address</Label>
+                        <Input
+                          id="donorEmail"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={donorEmail}
+                          onChange={(e) => setDonorEmail(e.target.value)}
+                          data-testid="input-donor-email"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Tax receipt will be emailed to you for tax deduction purposes
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Terms and Conditions */}
+                <div className="flex items-start space-x-2 p-3 bg-muted/30 rounded-lg">
+                  <Checkbox 
+                    id="agreeTerms" 
+                    checked={agreeTerms}
+                    onCheckedChange={(checked) => setAgreeTerms(checked as boolean)}
+                    data-testid="checkbox-agree-terms"
+                  />
+                  <Label htmlFor="agreeTerms" className="cursor-pointer leading-relaxed">
+                    I agree to the{" "}
+                    <a 
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-medium"
+                      data-testid="link-terms"
+                    >
+                      Reallocation & No-Refunds
+                    </a>
+                    {" "}terms.
+                  </Label>
+                </div>
+
                 {/* Donate Buttons */}
                 <div className="space-y-3">
                   <Button
@@ -317,13 +464,6 @@ export default function DonorViewTag() {
                 </p>
               </CardContent>
             </Card>
-
-            {/* QR Code */}
-            <DonationQRCode
-              url={`${window.location.origin}/donor/view/${tagCode}`}
-              tagCode={tagCode}
-              size={140}
-            />
           </div>
         </div>
       </div>
