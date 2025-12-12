@@ -49,6 +49,12 @@ export default function CharityLogin() {
 
       const data = await response.json();
 
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('[CharityLogin] JWT token stored');
+      }
+
       toast({
         title: "Welcome back!",
         description: "Redirecting to your credibility page...",

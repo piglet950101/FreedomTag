@@ -109,8 +109,8 @@ export default function LoginSelector() {
         return '/philanthropist/dashboard';
       }
       if (roles.includes('ORGANIZATION')) {
-        // Try to get tag code from session, fallback to a default
-        const tagCode = session.beneficiaryTag?.tagCode || 'CH118380';
+        // Try to get tag code from organization or beneficiaryTag, fallback to a default
+        const tagCode = session.organization?.tagCode || session.beneficiaryTag?.tagCode || 'CH118380';
         return `/charity/credibility/${tagCode}`;
       }
       // Default to beneficiary dashboard for other roles
