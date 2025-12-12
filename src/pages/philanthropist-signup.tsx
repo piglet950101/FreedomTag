@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default function PhilanthropistSignup() {
 
   // Note: this page is signup-only. Login has its own route.
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!signupEmail || !signupPassword) {
@@ -77,6 +77,13 @@ export default function PhilanthropistSignup() {
       }
 
       const data = await response.json();
+      
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('[PhilanthropistSignup] JWT token stored');
+      }
+      
       setSignupData(data);
 
       // Show viral popup after 1 second

@@ -50,6 +50,12 @@ export default function LoginPage() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('[Login] JWT token stored');
+      }
+      
       toast({
         title: "Welcome back!",
         description: "Redirecting to your dashboard...",

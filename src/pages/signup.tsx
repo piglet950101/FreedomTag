@@ -74,17 +74,17 @@ export default function SignupPage() {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: SignupForm) => {
+    mutationFn: async (formData: SignupForm) => {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          email: data.email,
-          password: data.password,
-          fullName: data.fullName,
-          phone: data.phone,
-          country: data.country,
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          country: formData.country,
           role: role,
         }),
       });
@@ -94,7 +94,15 @@ export default function SignupPage() {
         throw new Error(error.error || 'Signup failed');
       }
       
-      return response.json();
+      const responseData = await response.json();
+      
+      // Store JWT token if provided
+      if (responseData.token) {
+        localStorage.setItem('authToken', responseData.token);
+        console.log('[Signup] JWT token stored');
+      }
+      
+      return responseData;
     },
     onSuccess: () => {
       toast({
