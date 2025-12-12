@@ -1,11 +1,10 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, LogOut, Wallet, Gift, Building2, ArrowRight, UserPlus, ArrowLeft, Bitcoin } from "lucide-react";
+import { Heart, Wallet, Gift, Building2, ArrowRight, UserPlus, ArrowLeft, Bitcoin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ReferralShare } from "@/components/ReferralShare";
 import { Loader2 } from "lucide-react";
 
@@ -95,30 +94,6 @@ export default function PhilanthropistDashboard() {
     },
   });
 
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const token = getAuthToken();
-      await fetch('/api/philanthropist/logout', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        credentials: 'include',
-      });
-      localStorage.removeItem('authToken');
-      queryClient.removeQueries({ queryKey: ['/api/philanthropist/me'] });
-    },
-    onSuccess: () => {
-      toast({ title: "Logged out", description: "You have been logged out successfully." });
-      setLocation('/');
-    },
-    onError: () => {
-      toast({ title: "Logout failed", description: "There was an error logging out.", variant: "destructive" });
-    },
-  });
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
 
   const formatZAR = (cents: number) => {
     return `R ${(cents / 100).toFixed(2)}`;
@@ -193,7 +168,7 @@ export default function PhilanthropistDashboard() {
             </Button>
           </Link>
         </div>
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-dashboard-title">
               <Heart className="w-8 h-8 text-primary" />
@@ -203,15 +178,6 @@ export default function PhilanthropistDashboard() {
               Welcome back, {philanthropist.displayName || philanthropist.email}
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            disabled={logoutMutation.isPending}
-            data-testid="button-logout"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
