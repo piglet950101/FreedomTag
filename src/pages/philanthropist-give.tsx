@@ -54,8 +54,34 @@ export default function PhilanthropistGive() {
   const [showStoryDialog, setShowStoryDialog] = useState(false);
   const [donationTransaction, setDonationTransaction] = useState<{ id: string; amountZAR: number } | null>(null);
 
+  const getAuthToken = () => localStorage.getItem('authToken');
+
   const { data: philanthropist } = useQuery<PhilanthropistResponse>({
     queryKey: ['/api/philanthropist/me'],
+    retry: false,
+    enabled: !!getAuthToken(), // Only check if token exists
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) {
+        return null;
+      }
+
+      const res = await fetch('/api/philanthropist/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem('authToken');
+        return null;
+      }
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch philanthropist data');
+      }
+
+      return res.json();
+    },
   });
 
   const { data: orgsData } = useQuery<{ organizations: Organization[] }>({

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ export default function TagLogin() {
   const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -39,6 +39,12 @@ export default function TagLogin() {
       }
 
       const data = await response.json();
+      
+      // Store JWT token if provided
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('[TagLogin] JWT token stored');
+      }
       
       // Store session data
       sessionStorage.setItem('beneficiary', JSON.stringify(data));

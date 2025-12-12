@@ -36,7 +36,7 @@ export default function LoginSelector() {
   const tokenType = tokenPayload?.type; // 'philanthropist', 'user', or undefined
 
   // Check user session - only if token type is 'user' or undefined (for backward compatibility)
-  const { data: session } = useQuery({
+  const { data: session, isLoading: isLoadingSession } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       const token = getAuthToken();
@@ -47,7 +47,9 @@ export default function LoginSelector() {
       });
       if (res.status === 401) return null;
       if (!res.ok) return null;
-      return res.json();
+      const data = await res.json();
+      console.log('[LoginSelector] Session data:', data);
+      return data;
     },
     enabled: hasToken && (tokenType === 'user' || !tokenType), // Only if user type or unknown
     retry: false,
@@ -89,9 +91,6 @@ export default function LoginSelector() {
     retry: false,
   });
 
-  // Determine if user is logged in and which dashboard to show
-  const isLoggedIn = hasToken && (!!session || !!beneficiarySession || !!philanthropistSession);
-  
   // Determine dashboard route based on user type
   const getDashboardRoute = () => {
     if (beneficiarySession) {
@@ -120,6 +119,11 @@ export default function LoginSelector() {
   };
   
   const dashboardRoute = getDashboardRoute();
+
+  // Determine if user is logged in and which dashboard to show
+  // Wait for session to load if we have a token and it's a user type
+  const isSessionLoading = hasToken && (tokenType === 'user' || !tokenType) && isLoadingSession;
+  const isLoggedIn = hasToken && !isSessionLoading && (!!session || !!beneficiarySession || !!philanthropistSession);
 
   useEffect(() => {
     setLastRole(localStorage.getItem('ft:lastLoginRole'));
@@ -207,11 +211,24 @@ export default function LoginSelector() {
     }
   };
 
+  // If session is loading, show loading state
+  if (hasToken && isSessionLoading) {
+    return (
+      <div className="relative inline-block text-left">
+        <Button variant="outline" className="gap-2 px-3 py-2" disabled>
+          <User className="w-4 h-4 mr-1" />
+          Loading...
+        </Button>
+      </div>
+    );
+  }
+
   // If logged in, show user menu
   if (isLoggedIn) {
     const userName = beneficiarySession?.beneficiaryName || 
                      philanthropistSession?.displayName ||
                      philanthropistSession?.email ||
+                     session?.organization?.organizationName ||
                      session?.user?.fullName || 
                      session?.user?.email || 
                      'User';

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export default function CharitySignup() {
     }
   }, []);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!organizationName || !email || !password) {
@@ -82,6 +82,18 @@ export default function CharitySignup() {
       }
 
       const data = await response.json();
+      
+      // Store JWT token if provided (charity signup now creates user account with token)
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('[CharitySignup] JWT token stored');
+        
+        // Invalidate and refetch session query so LoginSelector picks up the new session
+        const { queryClient } = await import('@/lib/queryClient');
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        // Refetch immediately
+        await queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
+      }
       
       setSignupResult({
         organizationId: data.organizationId,
@@ -380,8 +392,8 @@ export default function CharitySignup() {
           
           <p className="text-center mt-4">
             Already have an account?{' '}
-            <Link href="/charity/login">
-              <a className="text-primary underline">Login</a>
+            <Link href="/charity/login" className="text-primary underline">
+              Login
             </Link>
           </p>
         </form>

@@ -56,7 +56,27 @@ export default function BeneficiaryDashboard() {
   // Get JWT token
   const getAuthToken = () => localStorage.getItem('authToken');
 
-  // Try beneficiary session first if on beneficiary dashboard, otherwise try auth/me
+  // Use auth/me for all cases - it works for beneficiaries with or without tags
+  const { data: session, isLoading, error: authError } = useQuery<UserSession | null>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+    enabled: isBeneficiaryDashboard,
+    queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) return null;
+      
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+      });
+      
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  // Try beneficiary session only if user has a tag (optional - for additional tag-specific data)
   const { data: beneficiarySession, isLoading: isLoadingBeneficiary, error: beneficiaryError } = useQuery<{
     tagCode: string | null;
     beneficiaryName: string;
@@ -68,7 +88,7 @@ export default function BeneficiaryDashboard() {
   } | null>({
     queryKey: ["/api/beneficiary/me"],
     retry: false,
-    enabled: isBeneficiaryDashboard, // Always try if on beneficiary dashboard
+    enabled: isBeneficiaryDashboard && !!session?.beneficiaryTag?.tagCode, // Only if user has a tag
     queryFn: async () => {
       const token = getAuthToken();
       console.log('[BeneficiaryDashboard] Fetching /api/beneficiary/me with token:', token ? 'present' : 'missing');
@@ -125,27 +145,6 @@ export default function BeneficiaryDashboard() {
     },
   });
 
-  const { data: session, isLoading, error: authError } = useQuery<UserSession | null>({
-    queryKey: ["/api/auth/me"],
-    retry: false,
-    enabled: !isBeneficiaryDashboard, // Only check auth/me if not on beneficiary dashboard
-    queryFn: async () => {
-      const token = getAuthToken();
-      const res = await fetch('/api/auth/me', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        credentials: 'include',
-      });
-      if (res.status === 401) {
-        // Return null for 401, don't throw - we'll handle redirect separately
-        return null;
-      }
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status}: ${text || res.statusText}`);
-      }
-      return res.json();
-    },
-  });
 
   const hasBlockkoinAccount = (() => {
     const v = String(session?.user.blockkoinAccountId || "").trim().toLowerCase();
