@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Send, Search, Heart, UserPlus, Building2, Camera } from "lucide-react";
+import { ArrowLeft, Send, Search, Heart, UserPlus, Building2, Camera, Loader2 } from "lucide-react";
 import QRScanner from '@/components/QRScanner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Link } from "wouter";
@@ -53,21 +53,19 @@ export default function PhilanthropistGive() {
   const [tagNotFound, setTagNotFound] = useState(false);
   const [showStoryDialog, setShowStoryDialog] = useState(false);
   const [donationTransaction, setDonationTransaction] = useState<{ id: string; amountZAR: number } | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const getAuthToken = () => localStorage.getItem('authToken');
 
-  const { data: philanthropist } = useQuery<PhilanthropistResponse>({
+  const { data: philanthropist, isLoading, error: authError } = useQuery<PhilanthropistResponse | null>({
     queryKey: ['/api/philanthropist/me'],
     retry: false,
-    enabled: !!getAuthToken(), // Only check if token exists
     queryFn: async () => {
       const token = getAuthToken();
-      if (!token) {
-        return null;
-      }
 
+      // Always make the request - let server return 401 if no token
       const res = await fetch('/api/philanthropist/me', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: 'include',
       });
 
@@ -77,10 +75,17 @@ export default function PhilanthropistGive() {
       }
 
       if (!res.ok) {
-        throw new Error('Failed to fetch philanthropist data');
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
       }
 
-      return res.json();
+      const data = await res.json();
+
+      if (!data || !data.id) {
+        return null;
+      }
+
+      return data;
     },
   });
 
@@ -139,8 +144,60 @@ export default function PhilanthropistGive() {
     },
   });
 
-  if (!philanthropist) {
-    return null;
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Loading your account...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle authentication errors - redirect to login
+  if (!philanthropist && !isLoading) {
+    // Check if it's an auth error or just no session
+    if (authError) {
+      const errorMessage = authError instanceof Error ? authError.message : String(authError);
+      if (errorMessage.includes('401') || errorMessage.includes('Not authenticated')) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to access this page.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          setLocation('/philanthropist/login');
+        }, 100);
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-muted-foreground">Redirecting to login...</p>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // If no session and no error, redirect to login
+    toast({
+      title: "Authentication Required",
+      description: "Please log in to access this page.",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      setLocation('/philanthropist/login');
+    }, 100);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSearch = () => {
@@ -154,8 +211,6 @@ export default function PhilanthropistGive() {
     }
     searchMutation.mutate(tagCode.trim().toUpperCase());
   };
-
-  const [showScanner, setShowScanner] = useState(false);
 
   const extractTagFromScan = (data: string) => {
     // Robust parsing of QR payloads. Scanned data may be:
@@ -590,9 +645,11 @@ export default function PhilanthropistGive() {
       {showStoryDialog && donationTransaction && (
         <StoryDialog
           open={showStoryDialog}
-          onClose={() => {
-            setShowStoryDialog(false);
-            setLocation('/philanthropist/dashboard');
+          onOpenChange={(open) => {
+            setShowStoryDialog(open);
+            if (!open) {
+              setLocation('/philanthropist/dashboard');
+            }
           }}
           transactionId={donationTransaction.id}
           amountZAR={donationTransaction.amountZAR}
