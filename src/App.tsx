@@ -116,7 +116,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/organization" component={OrganizationPortal} />
       <Route path="/demo-verification" component={DemoVerification} />
-      <Route path="/kiosk" component={KioskHome} />
+      <Route path="/kiosk-home" component={KioskHome} />
       <Route path="/kiosk/donate/:tagCode" component={KioskDonate} />
       <Route path="/kiosk/beneficiary" component={BeneficiaryLogin} />
       <Route path="/kiosk/beneficiary/dashboard" component={KioskBeneficiaryDashboard} />
